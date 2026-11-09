@@ -70,15 +70,6 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       count: 'Cervantes, crónicas y cuentos',
     },
     {
-      category: 'listening',
-      title: 'Audios con Transcripción',
-      description: 'Locutores nativos, velocidad graduable y frases repetibles con un toque.',
-      icon: '🎧',
-      badge: 'Nativo',
-      variant: 'dark',
-      count: 'Historias sonoras de España',
-    },
-    {
       category: 'exercises',
       title: 'Ejercicios Interactivos',
       description: 'Reordenar frases, opción múltiple, rellenar huecos y retroalimentación.',
@@ -95,15 +86,6 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       badge: 'Expresión',
       variant: 'peach',
       count: 'Redacción A1–B2',
-    },
-    {
-      category: 'speaking',
-      title: 'Práctica de Pronunciación',
-      description: 'Modelo sonoro nativo, consejos de entonación y grabador con reproducción.',
-      icon: '🗣️',
-      badge: 'Oral',
-      variant: 'sage',
-      count: 'Locución nativa',
     },
   ];
 

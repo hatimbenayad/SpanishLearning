@@ -19,7 +19,7 @@ import { UserProgress } from '../../types';
 
 interface HomeScreenProps {
   userProgress: UserProgress;
-  onNavigateToActivity: (activity: 'reading' | 'listening' | 'vocabulary' | 'grammar' | 'verbs') => void;
+  onNavigateToActivity: (activity: 'reading' | 'vocabulary' | 'grammar' | 'verbs' | 'exercises') => void;
   onContinueLesson: () => void;
   onPressProfile?: () => void;
 }
@@ -143,24 +143,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </EditorialText>
             </EducationalCard>
 
-            {/* Activity 2: Listening */}
+            {/* Activity 2: Interactive Exercises */}
             <EducationalCard
               variant="peach"
-              onPress={() => onNavigateToActivity('listening')}
+              onPress={() => onNavigateToActivity('exercises')}
               style={styles.activityCard}
             >
               <View style={styles.activityHeader}>
-                <EditorialText style={styles.activityEmoji}>🎧</EditorialText>
-                <Badge label="Audio" variant="orange" />
+                <EditorialText style={styles.activityEmoji}>✍️</EditorialText>
+                <Badge label="Práctica" variant="orange" />
               </View>
               <EditorialText variant="subheadline" color={colors.text.primary} style={styles.actTitle}>
-                Paseo por San Miguel
+                Ejercicios interactivos
               </EditorialText>
               <EditorialText variant="bodySmall" color={colors.text.secondary} numberOfLines={2}>
-                Escucha el ambiente y los sabores del histórico mercado.
+                Emparejar palabras, ordenar frases y opción múltiple.
               </EditorialText>
               <EditorialText variant="caption" color={colors.burntOrange} style={styles.actDuration}>
-                ⏱ 3 min • Transcripción sincronizada
+                ⏱ 5 min • Sesión evaluada
               </EditorialText>
             </EducationalCard>
 

@@ -55,3 +55,4 @@ describe('DatabaseService and SyncEngine', () => {
     expect(status.pendingChangesCount).toBeGreaterThan(0);
   });
 });
+

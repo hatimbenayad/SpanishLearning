@@ -28,25 +28,11 @@ const skillsConfig: SkillItemConfig[] = [
     cefrSublevel: 'A2.1 En progreso',
   },
   {
-    key: 'listening',
-    title: 'Comprensión auditiva',
-    emoji: '🎧',
+    key: 'writing',
+    title: 'Expresión escrita & Composición',
+    emoji: '✍️',
     color: colors.burntOrange,
     cefrSublevel: 'A1.2 Consolidado',
-  },
-  {
-    key: 'writing',
-    title: 'Expresión escrita',
-    emoji: '✍️',
-    color: '#8E4822',
-    cefrSublevel: 'A1.1 Inicial',
-  },
-  {
-    key: 'speaking',
-    title: 'Expresión oral',
-    emoji: '🗣️',
-    color: '#2A5D4E',
-    cefrSublevel: 'A1.1 Inicial',
   },
 ];
 

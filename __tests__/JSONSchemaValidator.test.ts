@@ -63,3 +63,4 @@ describe('JSONSchemaValidator', () => {
     expect(result.errors.some(e => e.includes('licencia'))).toBe(true);
   });
 });
+

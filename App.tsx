@@ -8,9 +8,8 @@ import { VocabularyScreen } from './src/screens/vocabulary/VocabularyScreen';
 import { GrammarScreen } from './src/screens/grammar/GrammarScreen';
 import { VerbsScreen } from './src/screens/verbs/VerbsScreen';
 import { ReadingScreen } from './src/screens/reading/ReadingScreen';
-import { ListeningScreen } from './src/screens/listening/ListeningScreen';
 import { WritingPracticeScreen } from './src/screens/practice/WritingPracticeScreen';
-import { SpeakingPracticeScreen } from './src/screens/practice/SpeakingPracticeScreen';
+import { ExerciseSessionScreen } from './src/screens/exercises/ExerciseSessionScreen';
 import { ProgressScreen } from './src/screens/progress/ProgressScreen';
 import { ProfileScreen } from './src/screens/profile/ProfileScreen';
 import { colors } from './src/theme/colors';
@@ -61,9 +60,6 @@ export default function App() {
     if (activeSubScreen === 'reading') {
       return <ReadingScreen onBack={() => setActiveSubScreen(null)} />;
     }
-    if (activeSubScreen === 'listening') {
-      return <ListeningScreen onBack={() => setActiveSubScreen(null)} />;
-    }
     if (activeSubScreen === 'vocabulary') {
       return <VocabularyScreen onBack={() => setActiveSubScreen(null)} />;
     }
@@ -76,8 +72,8 @@ export default function App() {
     if (activeSubScreen === 'writing') {
       return <WritingPracticeScreen onBack={() => setActiveSubScreen(null)} />;
     }
-    if (activeSubScreen === 'speaking') {
-      return <SpeakingPracticeScreen onBack={() => setActiveSubScreen(null)} />;
+    if (activeSubScreen === 'exercises') {
+      return <ExerciseSessionScreen onBack={() => setActiveSubScreen(null)} onFinishSession={refreshProgress} />;
     }
 
     // Main Tab Routing
