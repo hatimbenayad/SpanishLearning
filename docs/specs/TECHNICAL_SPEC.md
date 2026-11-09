@@ -12,3 +12,4 @@
 - Spaced repetition calculations are executed through `FSRSEngine.scheduleNextReview()`.
 - Data portability handles JSON serializations via `exportBackupJSON()` and `importBackupJSON()`.
 - Platform fonts fallback safely between iOS (`Georgia`) and Android (`serif`).
+

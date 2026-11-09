@@ -49,3 +49,4 @@
 - `minutes`: INTEGER DEFAULT 0
 - `lessons_completed`: INTEGER DEFAULT 0
 - UNIQUE(user_id, date)
+

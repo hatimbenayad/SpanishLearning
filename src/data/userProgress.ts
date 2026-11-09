@@ -28,3 +28,4 @@ export const initialUserProgress: UserProgress = {
     speaking: 45,
   },
 };
+

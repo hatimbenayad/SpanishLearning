@@ -103,3 +103,4 @@
 - `VocabularyIllustration`: Hand-drawn index flashcards with botanical sprig accents.
 - `AudioIllustration`: Acoustic Spanish guitar and headphones with organic sound waves.
 - `MilestoneBadge`: Hand-drawn starburst / wreath for CEFR milestones.
+

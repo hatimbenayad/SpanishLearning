@@ -87,6 +87,24 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       variant: 'lavender',
       count: 'Evaluación formativa',
     },
+    {
+      category: 'writing',
+      title: 'Taller de Escritura',
+      description: 'Composiciones guiadas con metas de palabras y banco léxico sugerido.',
+      icon: '📝',
+      badge: 'Expresión',
+      variant: 'peach',
+      count: 'Redacción A1–B2',
+    },
+    {
+      category: 'speaking',
+      title: 'Práctica de Pronunciación',
+      description: 'Modelo sonoro nativo, consejos de entonación y grabador con reproducción.',
+      icon: '🗣️',
+      badge: 'Oral',
+      variant: 'sage',
+      count: 'Locución nativa',
+    },
   ];
 
   return (
@@ -317,3 +335,4 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(23, 23, 21, 0.06)',
   },
 });
+

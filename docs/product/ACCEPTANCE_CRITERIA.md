@@ -25,3 +25,4 @@
 - [x] Deterministic FSRS spaced repetition engine covered by automated unit tests.
 - [x] JSON data backup and restoration capability with schema validation.
 - [x] Offline-first data model with SQLite / fixture isolation.
+

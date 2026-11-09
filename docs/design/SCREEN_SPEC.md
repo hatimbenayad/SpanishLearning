@@ -267,3 +267,4 @@ The application utilizes a persistent bottom tab bar coupled with focused modal 
   - `"Exportar copia de seguridad (JSON)"` — Generates a versioned JSON package of user progress, learned words, and review history.
   - `"Restaurar desde archivo JSON"` — Validates schema and restores study data.
 - Offline cache status: downloaded lessons and audio storage size.
+

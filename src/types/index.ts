@@ -201,3 +201,4 @@ export interface BackupData {
   customVocabulary: VocabularyItem[];
   favoriteWordIds: string[];
 }
+

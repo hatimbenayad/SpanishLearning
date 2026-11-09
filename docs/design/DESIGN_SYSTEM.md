@@ -168,3 +168,4 @@ We pair an **editorial serif** for literary headlines and reading passages with 
 - **Cultural and literary subjects:** People reading books with cozy mugs, stacked Spanish literature ("Cien años de soledad", "Don Quijote", poetry books), Spanish courtyards, guitars, olive branches, and travel journals.
 - **Micro-illustrations:** Small decorative sparkles, underlines, and asterisk doodles alongside key achievements and milestones.
 - **Iconography:** Clean, modern line icons (2px stroke) paired with tactile warmth, ensuring fast recognition and seamless visual harmony across platforms.
+

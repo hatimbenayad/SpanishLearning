@@ -23,3 +23,4 @@
 2. **Comfort Tuning:** User adjusts reading typography size (`A- / A+`).
 3. **Instant Lookup:** User taps an unfamiliar word (`sobremesa`). A sleek popover opens with pronunciation, phonetic transcription, and cultural explanation.
 4. **Word Collection:** User taps "Guardar en vocabulario", adding the word to their personal study deck.
+

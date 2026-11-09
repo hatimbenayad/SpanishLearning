@@ -59,3 +59,4 @@ SpanishLearn is an offline-first mobile application built on Expo (React Native 
 ### 2.3 JSON Data Portability
 - Backup format version `1.0.0` with JSON Schema validation.
 - Allows exporting complete learning state (user progress, vocabulary, favorites, FSRS review cards) and importing backups without data loss.
+

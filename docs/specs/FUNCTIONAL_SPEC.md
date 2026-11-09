@@ -11,3 +11,4 @@
 - **Listening Engine:** Audio player with speed selector (0.75x–1.25x), scrub bar, and interactive synced transcripts.
 - **Analytics & Progress:** Historical study time graphs, FSRS review queue forecasts, and CEFR milestone roadmap.
 - **Profile & Settings:** Backup export to versioned JSON and restore mechanism with schema validation.
+

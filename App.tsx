@@ -9,6 +9,8 @@ import { GrammarScreen } from './src/screens/grammar/GrammarScreen';
 import { VerbsScreen } from './src/screens/verbs/VerbsScreen';
 import { ReadingScreen } from './src/screens/reading/ReadingScreen';
 import { ListeningScreen } from './src/screens/listening/ListeningScreen';
+import { WritingPracticeScreen } from './src/screens/practice/WritingPracticeScreen';
+import { SpeakingPracticeScreen } from './src/screens/practice/SpeakingPracticeScreen';
 import { ProgressScreen } from './src/screens/progress/ProgressScreen';
 import { ProfileScreen } from './src/screens/profile/ProfileScreen';
 import { colors } from './src/theme/colors';
@@ -71,6 +73,12 @@ export default function App() {
     if (activeSubScreen === 'verbs') {
       return <VerbsScreen onBack={() => setActiveSubScreen(null)} />;
     }
+    if (activeSubScreen === 'writing') {
+      return <WritingPracticeScreen onBack={() => setActiveSubScreen(null)} />;
+    }
+    if (activeSubScreen === 'speaking') {
+      return <SpeakingPracticeScreen onBack={() => setActiveSubScreen(null)} />;
+    }
 
     // Main Tab Routing
     switch (currentTab) {
@@ -130,3 +138,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
