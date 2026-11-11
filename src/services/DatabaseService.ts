@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { VocabularyItem, UserProgress, FSRSCard, WritingDraft, AppSettings } from '../types';
+import { loadExpoSQLite } from './sqliteLoader';
 
 /**
  * Local Offline Persistence Service (SQLite on iOS/Android + localStorage JSON on Web)
@@ -140,7 +141,7 @@ export class DatabaseService {
       const isNativeMobile = !isJest && (Platform.OS === 'ios' || Platform.OS === 'android');
 
       if (isNativeMobile) {
-        const SQLite = require('expo-sqlite');
+        const SQLite = loadExpoSQLite();
         if (SQLite?.openDatabaseAsync) {
           this.sqliteDb = await SQLite.openDatabaseAsync('spanishlearn.db');
           for (const ddl of SQLITE_MIGRATIONS) {

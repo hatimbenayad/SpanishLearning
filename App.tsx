@@ -87,7 +87,7 @@ export default function App() {
   if (!isReady) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background.canvas} />
+        <StatusBar barStyle="dark-content" />
         <ActivityIndicator size="large" color={colors.burntOrange} />
         <EditorialText variant="handwritten" color={colors.forestGreen} style={{ marginTop: 12 }}>
           Preparando tu diario de español...
@@ -99,7 +99,7 @@ export default function App() {
   if (!hasCompletedOnboarding) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background.canvas} />
+        <StatusBar barStyle="dark-content" />
         <OnboardingScreen
           onFinish={handleFinishOnboarding}
           onSkip={handleSkipOnboarding}
@@ -170,7 +170,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background.canvas} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.screenArea}>{renderActiveScreen()}</View>
       <TabBar currentTab={currentTab} onSelectTab={handleSelectTab} />
     </View>

@@ -6,9 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#F6F0E7"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -28,7 +25,15 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F0E7",
+          "image": "./assets/icon.png",
+          "imageWidth": 200
+        }
+      ]
     ]
   }
 }

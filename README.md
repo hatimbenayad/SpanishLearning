@@ -69,11 +69,11 @@ SpanishLearn harmonizes two design philosophies:
 
 ## 🛠 Tech Stack
 
-- **Frontend:** React Native 0.76.7, Expo ~52.0.32, TypeScript 5.3.3.
-- **Vector Illustrations & Charts:** `react-native-svg` 15.8.0.
+- **Frontend:** React Native 0.88.1, Expo ~58.0.24, TypeScript ~6.0.3.
+- **Vector Illustrations & Charts:** `react-native-svg` 15.16.0.
 - **Icons:** `lucide-react-native` and Unicode iconography.
-- **Persistence & Cloud:** Expo SQLite and `@supabase/supabase-js` 2.47.10.
-- **Testing:** Jest 29.7.0, `ts-jest` 29.2.5 (21 unit tests).
+- **Persistence & Cloud:** Expo SQLite (`~58.0.16`) and `@supabase/supabase-js` 2.47.10.
+- **Testing:** Jest ~30.5.2, `ts-jest` ^29.4.15 (46 tests across 11 suites).
 
 ---
 
@@ -108,8 +108,8 @@ SpanishLearn harmonizes two design philosophies:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js >= 18
-- npm >= 9
+- Node.js >= 22.13
+- npm >= 10
 
 ### Installation
 ```bash
