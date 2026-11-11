@@ -138,11 +138,27 @@ npm run web
 
 ### Running Tests & Typecheck
 ```bash
-# Run unit tests
+# Run unit & integration tests
 npm test
 
 # Run strict TypeScript validation
 npm run typecheck
+```
+
+### Supabase Cloud Setup (Optional)
+SpanishLearn runs offline-first out of the box using local SQLite. To enable cloud authentication and sync:
+1. Copy `.env.example` to `.env` and populate `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+2. Apply PostgreSQL migrations and RLS policies from `supabase/migrations/`:
+   - `202611110001_initial_schema.sql`
+   - `202611110002_rls_policies.sql`
+
+### Building Mobile Binaries (EAS)
+```bash
+# Preview APK for Android devices
+npx eas build --platform android --profile preview
+
+# Production App Bundle / iOS IPA
+npx eas build --platform all --profile production
 ```
 
 ---

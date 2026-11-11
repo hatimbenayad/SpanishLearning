@@ -26,6 +26,10 @@ jobs:
       - name: Run strict TypeScript typecheck
         run: npm run typecheck
 
-      - name: Run automated unit tests
+      - name: Run automated unit and integration tests
         run: npm test
 
+      - name: Validate Expo and EAS configuration
+        run: |
+          npx expo config --type public > /dev/null
+          node -e "JSON.parse(require('fs').readFileSync('eas.json', 'utf8'))"
