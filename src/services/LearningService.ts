@@ -4,14 +4,18 @@ import { initialVocabulary } from '../data/vocabulary';
 import { FSRSEngine } from './FSRSEngine';
 import { JSONSchemaValidator } from './JSONSchemaValidator';
 import { ContentIngestionService, IngestionReport } from './ContentIngestionService';
+import { DatabaseService } from './DatabaseService';
 
 export class LearningService {
   private static instance: LearningService;
+  private dbService: DatabaseService;
 
   private userProgress: UserProgress = { ...initialUserProgress };
   private vocabularyList: VocabularyItem[] = [...initialVocabulary];
 
-  private constructor() {}
+  private constructor() {
+    this.dbService = DatabaseService.getInstance();
+  }
 
   public static getInstance(): LearningService {
     if (!LearningService.instance) {
@@ -77,6 +81,9 @@ export class LearningService {
     } else {
       this.userProgress.savedWordIds = this.userProgress.savedWordIds.filter(wId => wId !== id);
     }
+
+    void this.dbService.saveVocabularyItem(word);
+    void this.dbService.saveUserProgress(this.userProgress);
     return word.isFavorite;
   }
 
@@ -90,6 +97,9 @@ export class LearningService {
 
     // Increment user learning minutes subtly (e.g. 1 min per review)
     this.userProgress.totalLearningMinutes += 1;
+
+    void this.dbService.saveFSRSCard(updatedCard);
+    void this.dbService.saveUserProgress(this.userProgress);
   }
 
   public completeLesson(lessonId: string): void {
@@ -103,6 +113,8 @@ export class LearningService {
         todayMetric.minutes += 15;
         todayMetric.lessons += 1;
       }
+
+      void this.dbService.saveUserProgress(this.userProgress);
     }
   }
 
@@ -151,6 +163,8 @@ export class LearningService {
       this.userProgress.savedWordIds.push(newId);
     }
     this.userProgress.vocabularyCount += 1;
+    void this.dbService.saveVocabularyItem(newItem);
+    void this.dbService.saveUserProgress(this.userProgress);
     return newItem;
   }
 
@@ -162,6 +176,10 @@ export class LearningService {
     if (report.accepted.length > 0) {
       this.vocabularyList.push(...report.accepted);
       this.userProgress.vocabularyCount += report.accepted.length;
+      for (const item of report.accepted) {
+        void this.dbService.saveVocabularyItem(item);
+      }
+      void this.dbService.saveUserProgress(this.userProgress);
     }
     return report;
   }

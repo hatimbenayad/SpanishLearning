@@ -4,9 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Alert,
   TextInput,
-  Pressable,
 } from 'react-native';
 import { EditorialText } from '../../components/common/EditorialText';
 import { EducationalCard } from '../../components/cards/EducationalCard';
@@ -15,6 +13,10 @@ import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
 import { UserProgress } from '../../types';
 import { LearningService } from '../../services/LearningService';
+import { SyncEngine } from '../../services/SyncEngine';
+import { AuthService } from '../../services/AuthService';
+import { grammarLessons } from '../../data/grammar';
+import { readingLibrary } from '../../data/reading';
 
 interface ProfileScreenProps {
   userProgress: UserProgress;
@@ -26,10 +28,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onRefreshProgress,
 }) => {
   const learningService = LearningService.getInstance();
+  const syncEngine = SyncEngine.getInstance();
+  const authService = AuthService.getInstance();
+
   const [showJsonExport, setShowJsonExport] = useState(false);
   const [exportedJson, setExportedJson] = useState('');
   const [importJsonText, setImportJsonText] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Auth & Cloud Sync UI state
+  const [authUser, setAuthUser] = useState(() => authService.getCurrentUser());
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authFeedback, setAuthFeedback] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const [syncStatus, setSyncStatus] = useState(() => syncEngine.getStatus());
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleExport = () => {
     const json = learningService.exportBackupJSON();
@@ -48,6 +64,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (result.success) {
       onRefreshProgress?.();
       setImportJsonText('');
+      setSyncStatus(syncEngine.getStatus());
+    }
+  };
+
+  const handleSignIn = async () => {
+    setAuthLoading(true);
+    const res = await authService.signIn(authEmail, authPassword);
+    setAuthFeedback(res.message);
+    if (res.success && res.user) {
+      setAuthUser(res.user);
+      setAuthPassword('');
+    }
+    setAuthLoading(false);
+  };
+
+  const handleSignUp = async () => {
+    setAuthLoading(true);
+    const res = await authService.signUp(authEmail, authPassword, userProgress.name);
+    setAuthFeedback(res.message);
+    if (res.success && res.user) {
+      setAuthUser(res.user);
+      setAuthPassword('');
+    }
+    setAuthLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    await authService.signOut();
+    setAuthUser(authService.getCurrentUser());
+    setAuthFeedback('Sesión cerrada. Sigues usando el perfil local sin conexión.');
+  };
+
+  const handleToggleOfflineMode = () => {
+    syncEngine.setOnlineStatus(!syncStatus.isOnline);
+    setSyncStatus(syncEngine.getStatus());
+  };
+
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    const result = await syncEngine.synchronize();
+    setSyncFeedback(result.message);
+    setSyncStatus(syncEngine.getStatus());
+    setIsSyncing(false);
+    if (result.success) {
+      onRefreshProgress?.();
     }
   };
 
@@ -58,7 +119,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           Mi Perfil &amp; Datos
         </EditorialText>
         <EditorialText variant="caption" color={colors.text.secondary}>
-          Configuración, portabilidad JSON y sincronización
+          Cuenta en la nube, sincronización SQLite y portabilidad JSON
         </EditorialText>
       </View>
 
@@ -74,10 +135,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
             <View style={styles.userInfo}>
               <EditorialText variant="headline" color={colors.text.primary}>
-                {userProgress.name}
+                {authUser.isGuest ? userProgress.name : authUser.name}
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
-                Estudiando español de España (Castellano)
+                {authUser.isGuest
+                  ? 'Modo local sin cuenta en la nube'
+                  : `Conectado: ${authUser.email}`}
               </EditorialText>
               <View style={styles.userBadges}>
                 <Badge label={`Nivel ${userProgress.cefrLevel}`} variant="forest" />
@@ -87,11 +150,150 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </EducationalCard>
 
+        {/* Supabase Authentication Card */}
+        <EducationalCard variant="ivory" style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <EditorialText style={{ fontSize: 20 }}>🔐</EditorialText>
+            <View style={{ flex: 1 }}>
+              <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
+                Cuenta Supabase &amp; Respaldo Cloud
+              </EditorialText>
+              <EditorialText variant="caption" color={colors.text.secondary}>
+                {syncStatus.cloudConfigured
+                  ? 'Proyecto Supabase configurado y listo'
+                  : 'Modo offline local (configura .env para sincronización remota)'}
+              </EditorialText>
+            </View>
+          </View>
+
+          {authFeedback && (
+            <View style={styles.statusBox}>
+              <EditorialText variant="caption" color={colors.forestGreen}>
+                {authFeedback}
+              </EditorialText>
+            </View>
+          )}
+
+          {authUser.isGuest ? (
+            <View style={styles.authForm}>
+              <TextInput
+                placeholder="Correo electrónico"
+                placeholderTextColor={colors.mutedGrey}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={authEmail}
+                onChangeText={setAuthEmail}
+                style={styles.textInput}
+              />
+              <TextInput
+                placeholder="Contraseña (mín. 6 caracteres)"
+                placeholderTextColor={colors.mutedGrey}
+                secureTextEntry
+                value={authPassword}
+                onChangeText={setAuthPassword}
+                style={styles.textInput}
+              />
+              <View style={styles.actionButtonsRow}>
+                <PillButton
+                  title="Iniciar sesión"
+                  variant="secondary"
+                  onPress={handleSignIn}
+                  loading={authLoading}
+                  size="small"
+                />
+                <PillButton
+                  title="Crear cuenta"
+                  variant="outline"
+                  onPress={handleSignUp}
+                  loading={authLoading}
+                  size="small"
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.actionButtonsRow}>
+              <PillButton
+                title="Cerrar sesión cloud"
+                variant="outline"
+                onPress={handleSignOut}
+                size="small"
+              />
+            </View>
+          )}
+        </EducationalCard>
+
+        {/* Offline Cache & Live Sync Status */}
+        <EducationalCard variant="cream" style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <EditorialText style={{ fontSize: 20 }}>📶</EditorialText>
+            <View style={{ flex: 1 }}>
+              <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
+                Sincronización Offline-First (SQLite)
+              </EditorialText>
+              <EditorialText variant="caption" color={colors.text.secondary}>
+                Persistencia local con resolución de conflictos por marca temporal
+              </EditorialText>
+            </View>
+          </View>
+
+          {syncFeedback && (
+            <View style={styles.statusBox}>
+              <EditorialText variant="caption" color={colors.forestGreen}>
+                {syncFeedback}
+              </EditorialText>
+            </View>
+          )}
+
+          <View style={styles.cacheDetails}>
+            <View style={styles.cacheRow}>
+              <EditorialText variant="bodySmall" color={colors.text.primary}>
+                Estado de red:
+              </EditorialText>
+              <Badge
+                label={syncStatus.isOnline ? 'En línea' : 'Sin conexión'}
+                variant={syncStatus.isOnline ? 'sage' : 'orange'}
+              />
+            </View>
+            <View style={styles.cacheRow}>
+              <EditorialText variant="bodySmall" color={colors.text.primary}>
+                Cambios pendientes en cola:
+              </EditorialText>
+              <EditorialText variant="bodySmall" color={colors.burntOrange} style={{ fontWeight: '700' }}>
+                {syncStatus.pendingChangesCount} pendiente(s)
+              </EditorialText>
+            </View>
+            <View style={styles.cacheRow}>
+              <EditorialText variant="bodySmall" color={colors.text.primary}>
+                Contenido disponible offline:
+              </EditorialText>
+              <EditorialText variant="bodySmall" color={colors.forestGreen} style={{ fontWeight: '600' }}>
+                {grammarLessons.length} gramática • {readingLibrary.length} lecturas • {learningService.getVocabulary().length} palabras
+              </EditorialText>
+            </View>
+          </View>
+
+          <View style={styles.actionButtonsRow}>
+            <PillButton
+              title="Sincronizar ahora"
+              variant="primary"
+              onPress={handleSyncNow}
+              loading={isSyncing}
+              size="small"
+            />
+            <PillButton
+              title={syncStatus.isOnline ? 'Simular offline' : 'Volver en línea'}
+              variant="outline"
+              onPress={handleToggleOfflineMode}
+              size="small"
+            />
+          </View>
+        </EducationalCard>
+
         {/* Data Portability (JSON Import & Export) */}
         <EducationalCard variant="ivory" style={styles.sectionCard}>
           <View style={styles.sectionTitleRow}>
             <EditorialText style={{ fontSize: 20 }}>💾</EditorialText>
-            <View>
+            <View style={{ flex: 1 }}>
               <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
                 Portabilidad de Datos (JSON)
               </EditorialText>
@@ -156,46 +358,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
           </View>
         </EducationalCard>
-
-        {/* Offline Cache Status */}
-        <EducationalCard variant="cream" style={styles.sectionCard}>
-          <View style={styles.sectionTitleRow}>
-            <EditorialText style={{ fontSize: 20 }}>📶</EditorialText>
-            <View>
-              <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
-                Modo Fuera de Línea (Offline-First)
-              </EditorialText>
-              <EditorialText variant="caption" color={colors.text.secondary}>
-                SQLite local sincronizado con Supabase
-              </EditorialText>
-            </View>
-          </View>
-
-          <View style={styles.cacheDetails}>
-            <View style={styles.cacheRow}>
-              <EditorialText variant="bodySmall" color={colors.text.primary}>
-                Estado de conexión:
-              </EditorialText>
-              <Badge label="En línea &amp; Sincronizado" variant="sage" />
-            </View>
-            <View style={styles.cacheRow}>
-              <EditorialText variant="bodySmall" color={colors.text.primary}>
-                Lecciones descargadas:
-              </EditorialText>
-              <EditorialText variant="bodySmall" color={colors.forestGreen} style={{ fontWeight: '600' }}>
-                24 lecciones (12.4 MB)
-              </EditorialText>
-            </View>
-            <View style={styles.cacheRow}>
-              <EditorialText variant="bodySmall" color={colors.text.primary}>
-                Audios almacenados:
-              </EditorialText>
-              <EditorialText variant="bodySmall" color={colors.forestGreen} style={{ fontWeight: '600' }}>
-                4 episodios (18.2 MB)
-              </EditorialText>
-            </View>
-          </View>
-        </EducationalCard>
       </ScrollView>
     </SafeAreaView>
   );
@@ -252,8 +414,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  authForm: {
+    gap: 10,
+  },
+  textInput: {
+    backgroundColor: '#FFF9F0',
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text.primary,
+  },
   actionButtonsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   statusBox: {
@@ -293,6 +469,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
 });
-
