@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { VocabularyItem, UserProgress, FSRSCard, WritingDraft, AppSettings } from '../types';
 
 /**
@@ -135,7 +136,10 @@ export class DatabaseService {
     if (this.isInitialized) return true;
 
     try {
-      if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+      const isJest = typeof process !== 'undefined' && Boolean(process.env?.JEST_WORKER_ID);
+      const isNativeMobile = !isJest && (Platform.OS === 'ios' || Platform.OS === 'android');
+
+      if (isNativeMobile) {
         const SQLite = require('expo-sqlite');
         if (SQLite?.openDatabaseAsync) {
           this.sqliteDb = await SQLite.openDatabaseAsync('spanishlearn.db');

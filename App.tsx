@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator, Platform } from 'react-native';
 import { TabBar, TabName } from './src/components/navigation/TabBar';
 import { OnboardingScreen } from './src/screens/onboarding/OnboardingScreen';
 import { HomeScreen } from './src/screens/home/HomeScreen';
@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.canvas,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   loadingContainer: {
     alignItems: 'center',
