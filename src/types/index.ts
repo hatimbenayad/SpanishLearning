@@ -194,11 +194,32 @@ export interface UserProgress {
   skillProficiency: SkillProficiency;
 }
 
+export interface SupabaseConfig {
+  url: string;
+  anonKey: string;
+}
+
+export interface WritingDraft {
+  id: string;
+  promptId: string;
+  title: string;
+  cefrLevel: CEFRLevel;
+  text: string;
+  wordCount: number;
+  updatedAt: string;
+}
+
+export interface AppSettings {
+  hasCompletedOnboarding: boolean;
+  supabaseConfig?: SupabaseConfig;
+}
+
 export interface BackupData {
   version: string;
   exportedAt: string;
   userProgress: UserProgress;
   customVocabulary: VocabularyItem[];
   favoriteWordIds: string[];
+  writingDrafts?: WritingDraft[];
 }
 

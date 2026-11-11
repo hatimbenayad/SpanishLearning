@@ -10,22 +10,34 @@ import { EditorialText } from '../../components/common/EditorialText';
 import { EducationalCard } from '../../components/cards/EducationalCard';
 import { ExerciseCard } from '../../components/learning/ExerciseCard';
 import { Badge } from '../../components/common/Badge';
+import { PillButton } from '../../components/common/PillButton';
 import { colors } from '../../theme/colors';
 import { grammarLessons } from '../../data/grammar';
 import { GrammarLesson, CEFRLevel } from '../../types';
+import { LearningService } from '../../services/LearningService';
 
 interface GrammarScreenProps {
   onBack?: () => void;
 }
 
 export const GrammarScreen: React.FC<GrammarScreenProps> = ({ onBack }) => {
+  const learningService = LearningService.getInstance();
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<'ALL' | CEFRLevel>('ALL');
   const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
+  const [completedIds, setCompletedIds] = useState<string[]>(() =>
+    learningService.getProgress().completedLessonIds
+  );
 
   const filteredLessons = grammarLessons.filter(l =>
     selectedLevelFilter === 'ALL' ? true : l.cefrLevel === selectedLevelFilter
   );
   const currentLesson: GrammarLesson = filteredLessons[selectedLessonIndex] || filteredLessons[0] || grammarLessons[0];
+  const isCurrentCompleted = completedIds.includes(currentLesson.id);
+
+  const handleCompleteLesson = () => {
+    learningService.completeLesson(currentLesson.id);
+    setCompletedIds([...learningService.getProgress().completedLessonIds]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -248,10 +260,22 @@ export const GrammarScreen: React.FC<GrammarScreenProps> = ({ onBack }) => {
               key={q.id}
               exercise={q}
               onComplete={isCorrect => {
-                // handle answer
+                if (isCorrect) {
+                  handleCompleteLesson();
+                }
               }}
             />
           ))}
+
+          <View style={{ marginTop: 8 }}>
+            <PillButton
+              title={isCurrentCompleted ? '✓ Lección completada' : 'Marcar lección completada'}
+              variant={isCurrentCompleted ? 'secondary' : 'dark'}
+              onPress={handleCompleteLesson}
+              disabled={isCurrentCompleted}
+              fullWidth
+            />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -5,53 +5,131 @@ import {
   ScrollView,
   SafeAreaView,
   TextInput,
+  Pressable,
+  Share,
 } from 'react-native';
 import { EditorialText } from '../../components/common/EditorialText';
 import { EducationalCard } from '../../components/cards/EducationalCard';
 import { PillButton } from '../../components/common/PillButton';
 import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
-import { UserProgress } from '../../types';
+import { UserProgress, CEFRLevel } from '../../types';
 import { LearningService } from '../../services/LearningService';
 import { SyncEngine } from '../../services/SyncEngine';
 import { AuthService } from '../../services/AuthService';
+import { SupabaseService } from '../../services/SupabaseService';
+import { DatabaseService } from '../../services/DatabaseService';
 import { grammarLessons } from '../../data/grammar';
 import { readingLibrary } from '../../data/reading';
 
 interface ProfileScreenProps {
   userProgress: UserProgress;
   onRefreshProgress?: () => void;
+  onReopenOnboarding?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   userProgress,
   onRefreshProgress,
+  onReopenOnboarding,
 }) => {
   const learningService = LearningService.getInstance();
   const syncEngine = SyncEngine.getInstance();
   const authService = AuthService.getInstance();
+  const supabaseService = SupabaseService.getInstance();
+  const dbService = DatabaseService.getInstance();
 
-  const [showJsonExport, setShowJsonExport] = useState(false);
-  const [exportedJson, setExportedJson] = useState('');
-  const [importJsonText, setImportJsonText] = useState('');
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // Profile Preferences state
+  const [editName, setEditName] = useState(userProgress.name);
+  const [editLevel, setEditLevel] = useState<CEFRLevel>(userProgress.cefrLevel);
+  const [editGoal, setEditGoal] = useState<number>(userProgress.dailyGoalMinutes);
+  const [prefFeedback, setPrefFeedback] = useState<string | null>(null);
 
-  // Auth & Cloud Sync UI state
+  // Per-user Supabase Settings state
+  const savedSbConfig = supabaseService.getConfiguration();
+  const [sbUrl, setSbUrl] = useState(savedSbConfig.url);
+  const [sbKey, setSbKey] = useState('');
+  const [sbConfigStatus, setSbConfigStatus] = useState<string | null>(null);
+  const [sbTesting, setSbTesting] = useState(false);
+  const [isSbConfigured, setIsSbConfigured] = useState(savedSbConfig.isConfigured);
+
+  // Auth state
   const [authUser, setAuthUser] = useState(() => authService.getCurrentUser());
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authFeedback, setAuthFeedback] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Sync & Local Storage state
   const [syncStatus, setSyncStatus] = useState(() => syncEngine.getStatus());
+  const [cacheStats, setCacheStats] = useState(() => dbService.getCacheStats());
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // JSON Backup state
+  const [showJsonExport, setShowJsonExport] = useState(false);
+  const [exportedJson, setExportedJson] = useState('');
+  const [importJsonText, setImportJsonText] = useState('');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const handleSavePreferences = async () => {
+    await learningService.updateProfilePreferences({
+      name: editName,
+      cefrLevel: editLevel,
+      dailyGoalMinutes: editGoal,
+    });
+    setPrefFeedback('Preferencias guardadas localmente.');
+    onRefreshProgress?.();
+    setCacheStats(dbService.getCacheStats());
+  };
+
+  const handleSaveSupabaseConfig = async () => {
+    const res = await supabaseService.configure(sbUrl, sbKey);
+    setSbConfigStatus(res.message);
+    if (res.success) {
+      setIsSbConfigured(true);
+      setSbKey('');
+      setSyncStatus(syncEngine.getStatus());
+    }
+  };
+
+  const handleTestSupabase = async () => {
+    setSbTesting(true);
+    const res = await supabaseService.testConnection();
+    setSbConfigStatus(res.message);
+    setSbTesting(false);
+  };
+
+  const handleClearSupabase = async () => {
+    await supabaseService.clearConfiguration();
+    await authService.signOut();
+    setIsSbConfigured(false);
+    setSbUrl('');
+    setSbKey('');
+    setAuthUser(authService.getCurrentUser());
+    setSyncStatus(syncEngine.getStatus());
+    setSbConfigStatus('Desconectado. Tus datos siguen funcionando 100% en modo local.');
+  };
 
   const handleExport = () => {
     const json = learningService.exportBackupJSON();
     setExportedJson(json);
     setShowJsonExport(true);
-    setStatusMessage('Copia de seguridad JSON generada correctamente.');
+    setStatusMessage('Copia de seguridad JSON generada con progreso, vocabulario y borradores.');
+  };
+
+  const handleShareJson = async () => {
+    const json = learningService.exportBackupJSON();
+    setExportedJson(json);
+    setShowJsonExport(true);
+    try {
+      await Share.share({
+        title: 'SpanishLearn-Backup.json',
+        message: json,
+      });
+    } catch {
+      setStatusMessage('Puedes copiar el JSON generado debajo para guardarlo en tu dispositivo.');
+    }
   };
 
   const handleImport = () => {
@@ -62,9 +140,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     const result = learningService.importBackupJSON(importJsonText);
     setStatusMessage(result.message);
     if (result.success) {
+      const updated = learningService.getProgress();
+      setEditName(updated.name);
+      setEditLevel(updated.cefrLevel);
+      setEditGoal(updated.dailyGoalMinutes);
       onRefreshProgress?.();
       setImportJsonText('');
       setSyncStatus(syncEngine.getStatus());
+      setCacheStats(dbService.getCacheStats());
     }
   };
 
@@ -81,7 +164,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const handleSignUp = async () => {
     setAuthLoading(true);
-    const res = await authService.signUp(authEmail, authPassword, userProgress.name);
+    const res = await authService.signUp(authEmail, authPassword, editName);
     setAuthFeedback(res.message);
     if (res.success && res.user) {
       setAuthUser(res.user);
@@ -93,7 +176,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const handleSignOut = async () => {
     await authService.signOut();
     setAuthUser(authService.getCurrentUser());
-    setAuthFeedback('Sesión cerrada. Sigues usando el perfil local sin conexión.');
+    setAuthFeedback('Sesión cerrada. Sigues usando almacenamiento local.');
   };
 
   const handleToggleOfflineMode = () => {
@@ -106,20 +189,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     const result = await syncEngine.synchronize();
     setSyncFeedback(result.message);
     setSyncStatus(syncEngine.getStatus());
+    setCacheStats(dbService.getCacheStats());
     setIsSyncing(false);
     if (result.success) {
       onRefreshProgress?.();
     }
   };
 
+  const driverLabel =
+    cacheStats.driver === 'expo-sqlite'
+      ? 'SQLite nativo (dispositivo)'
+      : cacheStats.driver === 'web-localstorage'
+      ? 'Almacenamiento local (Web)'
+      : 'Almacenamiento en memoria';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <EditorialText variant="displaySmall" color={colors.text.primary}>
-          Mi Perfil &amp; Datos
+          Perfil &amp; Configuración
         </EditorialText>
         <EditorialText variant="caption" color={colors.text.secondary}>
-          Cuenta en la nube, sincronización SQLite y portabilidad JSON
+          Almacenamiento local automático, tu propio Supabase y respaldo JSON
         </EditorialText>
       </View>
 
@@ -127,7 +218,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Card */}
+        {/* User Summary Card */}
         <EducationalCard variant="cream" style={styles.userCard}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
@@ -138,89 +229,267 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 {authUser.isGuest ? userProgress.name : authUser.name}
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
-                {authUser.isGuest
-                  ? 'Modo local sin cuenta en la nube'
-                  : `Conectado: ${authUser.email}`}
+                {isSbConfigured && !authUser.isGuest
+                  ? `Nube: ${authUser.email}`
+                  : 'Modo 100% Local (sin cuenta requerida)'}
               </EditorialText>
               <View style={styles.userBadges}>
                 <Badge label={`Nivel ${userProgress.cefrLevel}`} variant="forest" />
-                <Badge label={`🔥 ${userProgress.currentStreak} días racha`} variant="orange" />
+                <Badge label={`🔥 ${userProgress.currentStreak} días`} variant="orange" />
               </View>
             </View>
           </View>
         </EducationalCard>
 
-        {/* Supabase Authentication Card */}
+        {/* Personal Preferences Editor */}
         <EducationalCard variant="ivory" style={styles.sectionCard}>
           <View style={styles.sectionTitleRow}>
-            <EditorialText style={{ fontSize: 20 }}>🔐</EditorialText>
+            <EditorialText style={{ fontSize: 20 }}>🎯</EditorialText>
             <View style={{ flex: 1 }}>
               <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
-                Cuenta Supabase &amp; Respaldo Cloud
+                Preferencias de Estudio
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
-                {syncStatus.cloudConfigured
-                  ? 'Proyecto Supabase configurado y listo'
-                  : 'Modo offline local (configura .env para sincronización remota)'}
+                Personaliza tu nombre, nivel objetivo y meta diaria
               </EditorialText>
             </View>
           </View>
 
-          {authFeedback && (
+          {prefFeedback && (
             <View style={styles.statusBox}>
               <EditorialText variant="caption" color={colors.forestGreen}>
-                {authFeedback}
+                {prefFeedback}
               </EditorialText>
             </View>
           )}
 
-          {authUser.isGuest ? (
-            <View style={styles.authForm}>
-              <TextInput
-                placeholder="Correo electrónico"
-                placeholderTextColor={colors.mutedGrey}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={authEmail}
-                onChangeText={setAuthEmail}
-                style={styles.textInput}
+          <TextInput
+            placeholder="Tu nombre"
+            placeholderTextColor={colors.mutedGrey}
+            value={editName}
+            onChangeText={setEditName}
+            style={styles.textInput}
+          />
+
+          <View style={styles.selectorBlock}>
+            <EditorialText variant="caption" color={colors.text.secondary}>
+              Nivel MCER actual:
+            </EditorialText>
+            <View style={styles.chipRow}>
+              {(['A1', 'A2', 'B1', 'B2'] as const).map(lvl => (
+                <Pressable
+                  key={lvl}
+                  onPress={() => setEditLevel(lvl)}
+                  style={[styles.chip, editLevel === lvl && styles.chipActive]}
+                >
+                  <EditorialText
+                    variant="caption"
+                    color={editLevel === lvl ? colors.text.inverse : colors.text.primary}
+                    style={{ fontWeight: '700' }}
+                  >
+                    {lvl}
+                  </EditorialText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.selectorBlock}>
+            <EditorialText variant="caption" color={colors.text.secondary}>
+              Meta diaria:
+            </EditorialText>
+            <View style={styles.chipRow}>
+              {[10, 20, 30].map(mins => (
+                <Pressable
+                  key={mins}
+                  onPress={() => setEditGoal(mins)}
+                  style={[styles.chip, editGoal === mins && styles.chipActive]}
+                >
+                  <EditorialText
+                    variant="caption"
+                    color={editGoal === mins ? colors.text.inverse : colors.text.primary}
+                    style={{ fontWeight: '700' }}
+                  >
+                    {mins} min
+                  </EditorialText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.actionButtonsRow}>
+            <PillButton
+              title="Guardar preferencias"
+              variant="secondary"
+              onPress={handleSavePreferences}
+              size="small"
+            />
+            {onReopenOnboarding && (
+              <PillButton
+                title="Ver bienvenida"
+                variant="outline"
+                onPress={onReopenOnboarding}
+                size="small"
               />
-              <TextInput
-                placeholder="Contraseña (mín. 6 caracteres)"
-                placeholderTextColor={colors.mutedGrey}
-                secureTextEntry
-                value={authPassword}
-                onChangeText={setAuthPassword}
-                style={styles.textInput}
-              />
-              <View style={styles.actionButtonsRow}>
+            )}
+          </View>
+        </EducationalCard>
+
+        {/* Per-User Custom Supabase Configuration */}
+        <EducationalCard variant="cream" style={styles.sectionCard}>
+          <View style={styles.sectionTitleRow}>
+            <EditorialText style={{ fontSize: 20 }}>☁️</EditorialText>
+            <View style={{ flex: 1 }}>
+              <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
+                Tu Servidor Supabase (Opcional)
+              </EditorialText>
+              <EditorialText variant="caption" color={colors.text.secondary}>
+                Si no lo configuras, todo se guarda automáticamente en tu dispositivo y en copias JSON.
+              </EditorialText>
+            </View>
+            <Badge
+              label={isSbConfigured ? 'Conectado' : 'Solo Local'}
+              variant={isSbConfigured ? 'sage' : 'peach'}
+            />
+          </View>
+
+          {sbConfigStatus && (
+            <View style={styles.statusBox}>
+              <EditorialText variant="caption" color={colors.forestGreen}>
+                {sbConfigStatus}
+              </EditorialText>
+            </View>
+          )}
+
+          {isSbConfigured && (
+            <View style={styles.cacheDetails}>
+              <EditorialText variant="caption" color={colors.text.secondary}>
+                Proyecto activo: {supabaseService.getConfiguration().url}
+              </EditorialText>
+              <EditorialText variant="caption" color={colors.text.secondary}>
+                Clave Anon: {supabaseService.getConfiguration().anonKeyMasked}
+              </EditorialText>
+            </View>
+          )}
+
+          <View style={styles.authForm}>
+            <TextInput
+              placeholder="Supabase URL (https://tu-proyecto.supabase.co)"
+              placeholderTextColor={colors.mutedGrey}
+              autoCapitalize="none"
+              value={sbUrl}
+              onChangeText={setSbUrl}
+              style={styles.textInput}
+            />
+            <TextInput
+              placeholder="Supabase Anon Key (eyJ...)"
+              placeholderTextColor={colors.mutedGrey}
+              autoCapitalize="none"
+              secureTextEntry
+              value={sbKey}
+              onChangeText={setSbKey}
+              style={styles.textInput}
+            />
+          </View>
+
+          <View style={styles.actionButtonsRow}>
+            <PillButton
+              title="Guardar Supabase"
+              variant="primary"
+              onPress={handleSaveSupabaseConfig}
+              size="small"
+            />
+            {isSbConfigured && (
+              <>
                 <PillButton
-                  title="Iniciar sesión"
+                  title="Probar conexión"
                   variant="secondary"
-                  onPress={handleSignIn}
-                  loading={authLoading}
+                  onPress={handleTestSupabase}
+                  loading={sbTesting}
                   size="small"
                 />
                 <PillButton
-                  title="Crear cuenta"
+                  title="Usar solo local"
                   variant="outline"
-                  onPress={handleSignUp}
-                  loading={authLoading}
+                  onPress={handleClearSupabase}
+                  size="small"
+                />
+              </>
+            )}
+          </View>
+        </EducationalCard>
+
+        {/* Cloud Authentication (shown when user configures their Supabase) */}
+        {isSbConfigured && (
+          <EducationalCard variant="ivory" style={styles.sectionCard}>
+            <View style={styles.sectionTitleRow}>
+              <EditorialText style={{ fontSize: 20 }}>🔐</EditorialText>
+              <View style={{ flex: 1 }}>
+                <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
+                  Cuenta en tu Supabase
+                </EditorialText>
+                <EditorialText variant="caption" color={colors.text.secondary}>
+                  Inicia sesión o regístrate en tu propio proyecto Supabase
+                </EditorialText>
+              </View>
+            </View>
+
+            {authFeedback && (
+              <View style={styles.statusBox}>
+                <EditorialText variant="caption" color={colors.forestGreen}>
+                  {authFeedback}
+                </EditorialText>
+              </View>
+            )}
+
+            {authUser.isGuest ? (
+              <View style={styles.authForm}>
+                <TextInput
+                  placeholder="Correo electrónico"
+                  placeholderTextColor={colors.mutedGrey}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={authEmail}
+                  onChangeText={setAuthEmail}
+                  style={styles.textInput}
+                />
+                <TextInput
+                  placeholder="Contraseña (mín. 6 caracteres)"
+                  placeholderTextColor={colors.mutedGrey}
+                  secureTextEntry
+                  value={authPassword}
+                  onChangeText={setAuthPassword}
+                  style={styles.textInput}
+                />
+                <View style={styles.actionButtonsRow}>
+                  <PillButton
+                    title="Iniciar sesión"
+                    variant="secondary"
+                    onPress={handleSignIn}
+                    loading={authLoading}
+                    size="small"
+                  />
+                  <PillButton
+                    title="Crear cuenta"
+                    variant="outline"
+                    onPress={handleSignUp}
+                    loading={authLoading}
+                    size="small"
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.actionButtonsRow}>
+                <PillButton
+                  title="Cerrar sesión cloud"
+                  variant="outline"
+                  onPress={handleSignOut}
                   size="small"
                 />
               </View>
-            </View>
-          ) : (
-            <View style={styles.actionButtonsRow}>
-              <PillButton
-                title="Cerrar sesión cloud"
-                variant="outline"
-                onPress={handleSignOut}
-                size="small"
-              />
-            </View>
-          )}
-        </EducationalCard>
+            )}
+          </EducationalCard>
+        )}
 
         {/* Offline Cache & Live Sync Status */}
         <EducationalCard variant="cream" style={styles.sectionCard}>
@@ -228,10 +497,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <EditorialText style={{ fontSize: 20 }}>📶</EditorialText>
             <View style={{ flex: 1 }}>
               <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
-                Sincronización Offline-First (SQLite)
+                Almacenamiento Local &amp; Sincronización
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
-                Persistencia local con resolución de conflictos por marca temporal
+                Motor activo: {driverLabel}
               </EditorialText>
             </View>
           </View>
@@ -256,7 +525,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
             <View style={styles.cacheRow}>
               <EditorialText variant="bodySmall" color={colors.text.primary}>
-                Cambios pendientes en cola:
+                Cambios por sincronizar:
               </EditorialText>
               <EditorialText variant="bodySmall" color={colors.burntOrange} style={{ fontWeight: '700' }}>
                 {syncStatus.pendingChangesCount} pendiente(s)
@@ -264,7 +533,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
             <View style={styles.cacheRow}>
               <EditorialText variant="bodySmall" color={colors.text.primary}>
-                Contenido disponible offline:
+                Borradores de escritura:
+              </EditorialText>
+              <EditorialText variant="bodySmall" color={colors.forestGreen} style={{ fontWeight: '600' }}>
+                {learningService.getWritingDrafts().length} guardado(s)
+              </EditorialText>
+            </View>
+            <View style={styles.cacheRow}>
+              <EditorialText variant="bodySmall" color={colors.text.primary}>
+                Currículo disponible offline:
               </EditorialText>
               <EditorialText variant="bodySmall" color={colors.forestGreen} style={{ fontWeight: '600' }}>
                 {grammarLessons.length} gramática • {readingLibrary.length} lecturas • {learningService.getVocabulary().length} palabras
@@ -274,7 +551,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           <View style={styles.actionButtonsRow}>
             <PillButton
-              title="Sincronizar ahora"
+              title={isSbConfigured ? 'Sincronizar con Supabase' : 'Guardar cambios locales'}
               variant="primary"
               onPress={handleSyncNow}
               loading={isSyncing}
@@ -295,10 +572,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <EditorialText style={{ fontSize: 20 }}>💾</EditorialText>
             <View style={{ flex: 1 }}>
               <EditorialText variant="subheadline" color={colors.text.primary} style={{ fontWeight: '700' }}>
-                Portabilidad de Datos (JSON)
+                Portabilidad Total en JSON
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
-                Exporta o restaura todo tu progreso sin perder datos
+                Exporta o restaura tu progreso, vocabulario y textos sin depender de servidores
               </EditorialText>
             </View>
           </View>
@@ -313,14 +590,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           <View style={styles.actionButtonsRow}>
             <PillButton
-              title="Exportar respaldo JSON"
+              title="Generar respaldo JSON"
               variant="secondary"
               onPress={handleExport}
               size="small"
             />
+            <PillButton
+              title="Compartir / Guardar archivo"
+              variant="outline"
+              onPress={handleShareJson}
+              size="small"
+            />
           </View>
 
-          {/* Exported JSON Box */}
           {showJsonExport && (
             <View style={styles.jsonPreview}>
               <EditorialText variant="caption" color={colors.text.secondary} style={{ marginBottom: 4 }}>
@@ -335,14 +617,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
           )}
 
-          {/* Import JSON Box */}
           <View style={styles.importBox}>
             <EditorialText variant="caption" color={colors.text.secondary} style={{ marginBottom: 6 }}>
-              Restaurar desde JSON:
+              Restaurar desde copia JSON:
             </EditorialText>
             <TextInput
               multiline
-              placeholder="Pega aquí el JSON de respaldo..."
+              placeholder="Pega aquí el contenido de tu archivo JSON..."
               placeholderTextColor={colors.mutedGrey}
               value={importJsonText}
               onChangeText={setImportJsonText}
@@ -413,6 +694,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  selectorBlock: {
+    gap: 6,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 9999,
+    backgroundColor: '#FFF9F0',
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+  },
+  chipActive: {
+    backgroundColor: colors.forestGreen,
+    borderColor: colors.forestGreen,
   },
   authForm: {
     gap: 10,

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   SafeAreaView,
   Pressable,
+  Modal,
 } from 'react-native';
 import { AppHeader } from '../../components/navigation/AppHeader';
 import { StatCard } from '../../components/cards/StatCard';
@@ -13,10 +14,12 @@ import { WeeklyBarChart } from '../../components/charts/WeeklyBarChart';
 import { SkillProficiencyList } from '../../components/charts/SkillProficiencyList';
 import { EducationalCard } from '../../components/cards/EducationalCard';
 import { EditorialText } from '../../components/common/EditorialText';
+import { PillButton } from '../../components/common/PillButton';
 import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
 import { UserProgress } from '../../types';
 import { formatMinutesToHours } from '../../utils/formatters';
+import { LearningService } from '../../services/LearningService';
 import { grammarLessons } from '../../data/grammar';
 import { readingLibrary } from '../../data/reading';
 
@@ -33,6 +36,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onContinueLesson,
   onPressProfile,
 }) => {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const learningService = LearningService.getInstance();
+  const forecast = learningService.getReviewForecast();
+
   const totalTimeFormatted = formatMinutesToHours(userProgress.totalLearningMinutes);
   const weeklyMinutes = userProgress.weeklyActivity.reduce((sum, d) => sum + d.minutes, 0);
   const weeklyLessons = userProgress.weeklyActivity.reduce((sum, d) => sum + d.lessons, 0);
@@ -48,6 +55,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     currentLevelLessons.length > 0
       ? Math.round((completedInLevel / currentLevelLessons.length) * 100)
       : 0;
+
+  // Determine the next recommended lesson dynamically
+  const nextGrammar =
+    grammarLessons.find(
+      g => g.cefrLevel === userProgress.cefrLevel && !userProgress.completedLessonIds.includes(g.id)
+    ) || grammarLessons.find(g => !userProgress.completedLessonIds.includes(g.id));
+
+  const nextReading =
+    readingLibrary.find(
+      r => r.cefrLevel === userProgress.cefrLevel && !userProgress.completedLessonIds.includes(r.id)
+    ) || readingLibrary.find(r => !userProgress.completedLessonIds.includes(r.id));
+
+  const recommended = nextGrammar
+    ? {
+        levelTag: `${nextGrammar.cefrLevel} — Gramática ${nextGrammar.order}`,
+        title: nextGrammar.title,
+        description: nextGrammar.subtitle,
+        durationMinutes: 8,
+        action: () => onNavigateToActivity('grammar'),
+      }
+    : nextReading
+    ? {
+        levelTag: `${nextReading.cefrLevel} — Lectura`,
+        title: nextReading.title,
+        description: nextReading.excerpt,
+        durationMinutes: nextReading.durationMinutes,
+        action: () => onNavigateToActivity('reading'),
+      }
+    : {
+        levelTag: `${userProgress.cefrLevel} — Repaso`,
+        title: 'Sesión de Práctica Integral',
+        description: 'Refuerza vocabulario y estructuras con ejercicios variados.',
+        durationMinutes: 10,
+        action: onContinueLesson,
+      };
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -60,6 +102,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           greeting="¡Hola! ¿Listo para otro día de español?"
           streakCount={userProgress.currentStreak}
           onPressProfile={onPressProfile}
+          onPressNotifications={() => setShowNotifications(true)}
         />
 
         {/* 1. Metric Overview (Reference 2 Grid) */}
@@ -115,12 +158,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* 2. "Continue Journey" Hero Card */}
         <View style={styles.section}>
           <ContinueJourneyCard
-            levelTag="A1 — Lección 08"
-            title="Pidiendo comida en el restaurante"
-            description="Aprende a ordenar platos típicos españoles, pedir la cuenta y expresar cortesía con soltura."
-            durationMinutes={12}
-            progressPercent={65}
-            onContinue={onContinueLesson}
+            levelTag={recommended.levelTag}
+            title={recommended.title}
+            description={recommended.description}
+            durationMinutes={recommended.durationMinutes}
+            progressPercent={levelProgressPercent}
+            onContinue={recommended.action}
           />
         </View>
 
@@ -199,7 +242,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 Tarjetas inteligentes con repetición espaciada.
               </EditorialText>
               <EditorialText variant="caption" color={colors.forestGreen} style={styles.actDuration}>
-                6 palabras pendientes hoy
+                {forecast.dueToday} palabras pendientes hoy
               </EditorialText>
             </EducationalCard>
 
@@ -262,6 +305,59 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <SkillProficiencyList proficiency={userProgress.skillProficiency} />
         </View>
       </ScrollView>
+
+      {/* Daily Notifications & FSRS Reminder Modal */}
+      <Modal
+        visible={showNotifications}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowNotifications(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={e => e.stopPropagation()}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <EditorialText variant="headline" color={colors.text.primary}>
+                Recordatorios de hoy
+              </EditorialText>
+              <Pressable onPress={() => setShowNotifications(false)} hitSlop={8}>
+                <EditorialText variant="bodySmall" color={colors.text.secondary}>✕</EditorialText>
+              </Pressable>
+            </View>
+
+            <View style={styles.notifItem}>
+              <EditorialText variant="subheadline" color={colors.forestGreen}>
+                🗂️ {forecast.dueToday} tarjetas FSRS listas para repasar
+              </EditorialText>
+              <EditorialText variant="bodySmall" color={colors.text.secondary}>
+                Mantén tu retención al día repasando el vocabulario programado.
+              </EditorialText>
+            </View>
+
+            <View style={styles.notifItem}>
+              <EditorialText variant="subheadline" color={colors.burntOrange}>
+                🔥 Racha actual: {userProgress.currentStreak} días consecutivos
+              </EditorialText>
+              <EditorialText variant="bodySmall" color={colors.text.secondary}>
+                Meta diaria configurada: {userProgress.dailyGoalMinutes} minutos.
+              </EditorialText>
+            </View>
+
+            <PillButton
+              title="Repasar vocabulario ahora →"
+              variant="primary"
+              onPress={() => {
+                setShowNotifications(false);
+                onNavigateToActivity('vocabulary');
+              }}
+              size="small"
+              fullWidth
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -318,6 +414,29 @@ const styles = StyleSheet.create({
   actDuration: {
     fontWeight: '600',
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(23, 23, 21, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: colors.softCream,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    gap: 14,
+  },
+  notifItem: {
+    backgroundColor: '#F3EFE7',
+    padding: 12,
+    borderRadius: 12,
+    gap: 4,
   },
 });
 

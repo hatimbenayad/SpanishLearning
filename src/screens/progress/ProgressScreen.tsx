@@ -16,6 +16,9 @@ import { colors } from '../../theme/colors';
 import { UserProgress } from '../../types';
 import { LearningService } from '../../services/LearningService';
 import { formatMinutesToHours } from '../../utils/formatters';
+import { grammarLessons } from '../../data/grammar';
+import { readingLibrary } from '../../data/reading';
+import { CEFRLevel } from '../../types';
 
 interface ProgressScreenProps {
   userProgress: UserProgress;
@@ -146,41 +149,55 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
           </EditorialText>
 
           <View style={styles.milestonesList}>
-            <View style={styles.milestoneItem}>
-              <EditorialText style={styles.checkDone}>✓</EditorialText>
-              <View style={styles.milestoneText}>
-                <EditorialText variant="subheadline" color={colors.forestGreen}>
-                  A1.1 — Saludos, números y descripciones inmediatas
-                </EditorialText>
-                <EditorialText variant="caption" color={colors.text.secondary}>
-                  Completado con éxito (100%)
-                </EditorialText>
-              </View>
-            </View>
+            {([
+              { level: 'A1' as CEFRLevel, title: 'A1 — Fundamentos, presente e identidad' },
+              { level: 'A2' as CEFRLevel, title: 'A2 — Narración pasada, viajes y rutinas' },
+              { level: 'B1' as CEFRLevel, title: 'B1 — Subjuntivo inicial y cultura hispana' },
+              { level: 'B2' as CEFRLevel, title: 'B2 — Hipótesis, matices y ensayo literario' },
+            ]).map(m => {
+              const ids = [
+                ...grammarLessons.filter(g => g.cefrLevel === m.level).map(g => g.id),
+                ...readingLibrary.filter(r => r.cefrLevel === m.level).map(r => r.id),
+              ];
+              const done = ids.filter(id => userProgress.completedLessonIds.includes(id)).length;
+              const pct = ids.length > 0 ? Math.round((done / ids.length) * 100) : 0;
+              const isDone = pct === 100 && ids.length > 0;
+              const isInProgress = pct > 0 && pct < 100;
 
-            <View style={styles.milestoneItem}>
-              <EditorialText style={styles.checkProgress}>🔄</EditorialText>
-              <View style={styles.milestoneText}>
-                <EditorialText variant="subheadline" color={colors.text.primary}>
-                  A1.2 — Pidiendo comida, compras y gustos personales
-                </EditorialText>
-                <EditorialText variant="caption" color={colors.burntOrange}>
-                  En curso (65% completado)
-                </EditorialText>
-              </View>
-            </View>
-
-            <View style={styles.milestoneItem}>
-              <EditorialText style={styles.checkPending}>○</EditorialText>
-              <View style={styles.milestoneText}>
-                <EditorialText variant="subheadline" color={colors.text.secondary}>
-                  A2.1 — Rutinas pasadas y relatos de viajes
-                </EditorialText>
-                <EditorialText variant="caption" color={colors.text.secondary}>
-                  Próximo objetivo
-                </EditorialText>
-              </View>
-            </View>
+              return (
+                <View key={m.level} style={styles.milestoneItem}>
+                  <EditorialText
+                    style={
+                      isDone
+                        ? styles.checkDone
+                        : isInProgress
+                        ? styles.checkProgress
+                        : styles.checkPending
+                    }
+                  >
+                    {isDone ? '✓' : isInProgress ? '🔄' : '○'}
+                  </EditorialText>
+                  <View style={styles.milestoneText}>
+                    <EditorialText
+                      variant="subheadline"
+                      color={isDone ? colors.forestGreen : isInProgress ? colors.text.primary : colors.text.secondary}
+                    >
+                      {m.title}
+                    </EditorialText>
+                    <EditorialText
+                      variant="caption"
+                      color={isDone ? colors.forestGreen : isInProgress ? colors.burntOrange : colors.text.secondary}
+                    >
+                      {isDone
+                        ? `Completado (${done}/${ids.length})`
+                        : isInProgress
+                        ? `En curso — ${pct}% (${done}/${ids.length} lecciones)`
+                        : `Pendiente (${ids.length} lecciones disponibles)`}
+                    </EditorialText>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </EducationalCard>
       </ScrollView>

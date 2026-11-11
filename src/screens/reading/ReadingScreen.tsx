@@ -208,7 +208,10 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ onBack }) => {
               key={q.id}
               exercise={q}
               onComplete={isCorrect => {
-                if (isCorrect) setReadingProgress(1.0);
+                if (isCorrect) {
+                  setReadingProgress(1.0);
+                  learningService.completeLesson(currentStory.id);
+                }
               }}
             />
           ))}

@@ -1,9 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { UserProgress, FSRSCard, VocabularyItem } from '../types';
+import { UserProgress, FSRSCard, VocabularyItem, SupabaseConfig } from '../types';
+import { DatabaseService } from './DatabaseService';
 
 /**
  * Supabase Cloud Client & Remote Data Abstraction Layer
- * Implements PRD Section 1 & 13 (Rule #6: Keep Supabase access behind a dedicated data layer).
+ * Implements PRD Section 1 & 13, supporting per-user Supabase configuration in Settings
+ * and falling back gracefully to 100% local JSON/SQLite persistence when unconfigured.
  */
 
 export interface RemoteUserProgressRecord {
@@ -47,6 +49,7 @@ export class SupabaseService implements RemoteSyncTransport {
   private static instance: SupabaseService;
   private client: SupabaseClient | null = null;
   private customTransport: RemoteSyncTransport | null = null;
+  private activeConfig: SupabaseConfig | null = null;
 
   private constructor() {
     this.initFromEnv();
@@ -64,12 +67,114 @@ export class SupabaseService implements RemoteSyncTransport {
     const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
     if (url && anonKey && url.startsWith('http')) {
-      this.client = createClient(url, anonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: true,
-        },
-      });
+      this.instantiateClient(url, anonKey);
+    }
+  }
+
+  private instantiateClient(url: string, anonKey: string): void {
+    this.activeConfig = { url: url.trim(), anonKey: anonKey.trim() };
+    this.client = createClient(this.activeConfig.url, this.activeConfig.anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: true,
+      },
+    });
+  }
+
+  /**
+   * Restores user-configured Supabase credentials from local SQLite / storage
+   */
+  public async loadSavedConfiguration(): Promise<void> {
+    const db = DatabaseService.getInstance();
+    const settings = await db.getAppSettings();
+    if (settings.supabaseConfig?.url && settings.supabaseConfig?.anonKey) {
+      this.instantiateClient(settings.supabaseConfig.url, settings.supabaseConfig.anonKey);
+    }
+  }
+
+  /**
+   * Configures and saves the user's personal Supabase project URL & Anon Key locally
+   */
+  public async configure(
+    url: string,
+    anonKey: string
+  ): Promise<{ success: boolean; message: string }> {
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    const cleanKey = anonKey.trim();
+
+    if (!cleanUrl.startsWith('https://') && !cleanUrl.startsWith('http://')) {
+      return {
+        success: false,
+        message: 'La URL de Supabase debe comenzar con https:// (ej: https://xyz.supabase.co).',
+      };
+    }
+    if (cleanKey.length < 20) {
+      return {
+        success: false,
+        message: 'La clave pública (Anon Key) parece incompleta.',
+      };
+    }
+
+    this.instantiateClient(cleanUrl, cleanKey);
+
+    const db = DatabaseService.getInstance();
+    const currentSettings = await db.getAppSettings();
+    await db.saveAppSettings({
+      ...currentSettings,
+      supabaseConfig: { url: cleanUrl, anonKey: cleanKey },
+    });
+
+    return {
+      success: true,
+      message: 'Configuración de Supabase guardada correctamente.',
+    };
+  }
+
+  /**
+   * Disconnects user Supabase configuration and returns to 100% local persistence mode
+   */
+  public async clearConfiguration(): Promise<void> {
+    this.client = null;
+    this.activeConfig = null;
+
+    const db = DatabaseService.getInstance();
+    const currentSettings = await db.getAppSettings();
+    const { supabaseConfig: _, ...rest } = currentSettings;
+    await db.saveAppSettings(rest);
+  }
+
+  public getConfiguration(): { url: string; anonKeyMasked: string; isConfigured: boolean } {
+    if (!this.activeConfig) {
+      return { url: '', anonKeyMasked: '', isConfigured: false };
+    }
+    const key = this.activeConfig.anonKey;
+    const masked =
+      key.length > 10 ? `${key.substring(0, 6)}••••••${key.substring(key.length - 4)}` : '••••••';
+    return {
+      url: this.activeConfig.url,
+      anonKeyMasked: masked,
+      isConfigured: true,
+    };
+  }
+
+  /**
+   * Tests reachability and schema availability against the configured Supabase instance
+   */
+  public async testConnection(): Promise<{ ok: boolean; message: string }> {
+    if (!this.client) {
+      return { ok: false, message: 'No hay un proyecto Supabase configurado todavía.' };
+    }
+    try {
+      const { error } = await this.client.from('cefr_levels').select('code').limit(1);
+      if (error) {
+        return {
+          ok: false,
+          message: `Conectado al servidor, pero falta ejecutar las migraciones SQL: ${error.message}`,
+        };
+      }
+      return { ok: true, message: 'Conexión verificada con tu proyecto Supabase.' };
+    } catch (err: any) {
+      return { ok: false, message: `No se pudo contactar con Supabase: ${err.message}` };
     }
   }
 

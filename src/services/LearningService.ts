@@ -1,17 +1,28 @@
-import { UserProgress, VocabularyItem, BackupData, FSRSRating, CEFRLevel } from '../types';
+import {
+  UserProgress,
+  VocabularyItem,
+  BackupData,
+  FSRSRating,
+  CEFRLevel,
+  WritingDraft,
+} from '../types';
 import { initialUserProgress } from '../data/userProgress';
 import { initialVocabulary } from '../data/vocabulary';
 import { FSRSEngine } from './FSRSEngine';
 import { JSONSchemaValidator } from './JSONSchemaValidator';
 import { ContentIngestionService, IngestionReport } from './ContentIngestionService';
 import { DatabaseService } from './DatabaseService';
+import { SupabaseService } from './SupabaseService';
 
 export class LearningService {
   private static instance: LearningService;
   private dbService: DatabaseService;
+  private isHydrated = false;
 
   private userProgress: UserProgress = { ...initialUserProgress };
   private vocabularyList: VocabularyItem[] = [...initialVocabulary];
+  private writingDrafts: WritingDraft[] = [];
+  private onboardingDone = false;
 
   private constructor() {
     this.dbService = DatabaseService.getInstance();
@@ -22,6 +33,111 @@ export class LearningService {
       LearningService.instance = new LearningService();
     }
     return LearningService.instance;
+  }
+
+  /**
+   * Initializes offline local persistence (SQLite / Web localStorage) and hydrates all saved user data
+   */
+  public async initialize(): Promise<void> {
+    if (this.isHydrated) return;
+
+    await this.dbService.initializeDatabase();
+    await SupabaseService.getInstance().loadSavedConfiguration();
+
+    const settings = await this.dbService.getAppSettings();
+    this.onboardingDone = Boolean(settings.hasCompletedOnboarding);
+
+    const savedProgress = await this.dbService.getUserProgress();
+    if (savedProgress) {
+      this.userProgress = { ...savedProgress };
+    }
+
+    const savedVocab = await this.dbService.getVocabulary();
+    for (const item of savedVocab) {
+      const idx = this.vocabularyList.findIndex(v => v.id === item.id);
+      if (idx >= 0) {
+        this.vocabularyList[idx] = item;
+      } else {
+        this.vocabularyList.unshift(item);
+      }
+    }
+
+    const savedCards = await this.dbService.getAllFSRSCards();
+    for (const card of savedCards) {
+      const vocab = this.vocabularyList.find(v => v.id === card.cardId);
+      if (vocab) {
+        vocab.fsrsCard = card;
+      }
+    }
+
+    this.writingDrafts = await this.dbService.getWritingDrafts();
+    this.userProgress.vocabularyCount = this.vocabularyList.length;
+    this.isHydrated = true;
+  }
+
+  public hasCompletedOnboarding(): boolean {
+    return this.onboardingDone;
+  }
+
+  public async completeOnboarding(prefs: {
+    name?: string;
+    cefrLevel: CEFRLevel;
+    dailyGoalMinutes: number;
+  }): Promise<void> {
+    if (prefs.name?.trim()) {
+      this.userProgress.name = prefs.name.trim();
+    }
+    this.userProgress.cefrLevel = prefs.cefrLevel;
+    this.userProgress.dailyGoalMinutes = prefs.dailyGoalMinutes;
+    this.onboardingDone = true;
+
+    const currentSettings = await this.dbService.getAppSettings();
+    await this.dbService.saveAppSettings({
+      ...currentSettings,
+      hasCompletedOnboarding: true,
+    });
+    await this.dbService.saveUserProgress(this.userProgress);
+  }
+
+  public async updateProfilePreferences(prefs: {
+    name?: string;
+    cefrLevel?: CEFRLevel;
+    dailyGoalMinutes?: number;
+  }): Promise<void> {
+    if (prefs.name !== undefined && prefs.name.trim()) {
+      this.userProgress.name = prefs.name.trim();
+    }
+    if (prefs.cefrLevel !== undefined) {
+      this.userProgress.cefrLevel = prefs.cefrLevel;
+    }
+    if (prefs.dailyGoalMinutes !== undefined) {
+      this.userProgress.dailyGoalMinutes = prefs.dailyGoalMinutes;
+    }
+    await this.dbService.saveUserProgress(this.userProgress);
+  }
+
+  public getWritingDrafts(): WritingDraft[] {
+    return [...this.writingDrafts];
+  }
+
+  public async saveWritingDraft(draft: Omit<WritingDraft, 'updatedAt'>): Promise<WritingDraft> {
+    const completeDraft: WritingDraft = {
+      ...draft,
+      updatedAt: new Date().toISOString(),
+    };
+    const idx = this.writingDrafts.findIndex(d => d.id === completeDraft.id);
+    if (idx >= 0) {
+      this.writingDrafts[idx] = completeDraft;
+    } else {
+      this.writingDrafts.unshift(completeDraft);
+    }
+    await this.dbService.saveWritingDraft(completeDraft);
+    return completeDraft;
+  }
+
+  public async deleteWritingDraft(draftId: string): Promise<void> {
+    this.writingDrafts = this.writingDrafts.filter(d => d.id !== draftId);
+    await this.dbService.deleteWritingDraft(draftId);
   }
 
   public getProgress(): UserProgress {
@@ -185,7 +301,7 @@ export class LearningService {
   }
 
   /**
-   * Export all user progress and vocabulary into a portable versioned JSON backup
+   * Export all user progress, vocabulary, and writing drafts into a portable versioned JSON backup
    */
   public exportBackupJSON(): string {
     const backup: BackupData = {
@@ -194,12 +310,13 @@ export class LearningService {
       userProgress: this.userProgress,
       customVocabulary: this.vocabularyList.filter(v => v.isFavorite || v.fsrsCard),
       favoriteWordIds: this.userProgress.savedWordIds,
+      writingDrafts: this.writingDrafts,
     };
     return JSON.stringify(backup, null, 2);
   }
 
   /**
-   * Import and validate a user JSON backup
+   * Import and validate a user JSON backup and persist locally
    */
   public importBackupJSON(jsonStr: string): { success: boolean; message: string } {
     try {
@@ -213,6 +330,8 @@ export class LearningService {
       }
 
       this.userProgress = { ...data.userProgress };
+      void this.dbService.saveUserProgress(this.userProgress);
+
       if (Array.isArray(data.customVocabulary)) {
         data.customVocabulary.forEach(item => {
           const idx = this.vocabularyList.findIndex(v => v.id === item.id);
@@ -221,10 +340,26 @@ export class LearningService {
           } else {
             this.vocabularyList.push(item);
           }
+          void this.dbService.saveVocabularyItem(item);
+          if (item.fsrsCard) {
+            void this.dbService.saveFSRSCard(item.fsrsCard);
+          }
         });
       }
 
-      return { success: true, message: 'Copia de seguridad restaurada con éxito.' };
+      if (Array.isArray(data.writingDrafts)) {
+        for (const draft of data.writingDrafts) {
+          const idx = this.writingDrafts.findIndex(d => d.id === draft.id);
+          if (idx >= 0) {
+            this.writingDrafts[idx] = draft;
+          } else {
+            this.writingDrafts.push(draft);
+          }
+          void this.dbService.saveWritingDraft(draft);
+        }
+      }
+
+      return { success: true, message: 'Copia de seguridad restaurada y guardada localmente con éxito.' };
     } catch (err: any) {
       return { success: false, message: `Error al procesar el archivo JSON: ${err.message}` };
     }

@@ -12,6 +12,8 @@ import { EducationalCard } from '../../components/cards/EducationalCard';
 import { PillButton } from '../../components/common/PillButton';
 import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
+import { LearningService } from '../../services/LearningService';
+import { WritingDraft } from '../../types';
 
 interface WritingPrompt {
   id: string;
@@ -54,21 +56,46 @@ interface WritingPracticeScreenProps {
 }
 
 export const WritingPracticeScreen: React.FC<WritingPracticeScreenProps> = ({ onBack }) => {
+  const learningService = LearningService.getInstance();
   const [selectedPromptIndex, setSelectedPromptIndex] = useState(0);
   const [draftText, setDraftText] = useState('');
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [savedDrafts, setSavedDrafts] = useState<WritingDraft[]>(() =>
+    learningService.getWritingDrafts()
+  );
   const [isSaved, setIsSaved] = useState(false);
 
   const prompt = writingPrompts[selectedPromptIndex];
   const wordCount = draftText.trim() ? draftText.trim().split(/\s+/).length : 0;
-  const progressRatio = Math.min(1, wordCount / prompt.minWords);
 
   const handleInsertWord = (word: string) => {
     setDraftText(prev => (prev ? `${prev} ${word}` : word));
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
+    if (!draftText.trim()) return;
+    const id = activeDraftId || `draft-${prompt.id}-${Date.now()}`;
+    const saved = await learningService.saveWritingDraft({
+      id,
+      promptId: prompt.id,
+      title: prompt.title,
+      cefrLevel: prompt.cefrLevel,
+      text: draftText.trim(),
+      wordCount,
+    });
+    setActiveDraftId(saved.id);
+    setSavedDrafts(learningService.getWritingDrafts());
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
+  };
+
+  const handleDeleteDraft = async (id: string) => {
+    await learningService.deleteWritingDraft(id);
+    setSavedDrafts(learningService.getWritingDrafts());
+    if (activeDraftId === id) {
+      setActiveDraftId(null);
+      setDraftText('');
+    }
   };
 
   return (
@@ -103,6 +130,7 @@ export const WritingPracticeScreen: React.FC<WritingPracticeScreenProps> = ({ on
               onPress={() => {
                 setSelectedPromptIndex(idx);
                 setDraftText('');
+                setActiveDraftId(null);
               }}
               style={[
                 styles.promptPill,
@@ -197,6 +225,45 @@ export const WritingPracticeScreen: React.FC<WritingPracticeScreenProps> = ({ on
             />
           </View>
         </EducationalCard>
+
+        {/* Saved Compositions History */}
+        {savedDrafts.length > 0 && (
+          <View style={{ gap: 10 }}>
+            <EditorialText variant="headline" color={colors.text.primary}>
+              Mis composiciones guardadas ({savedDrafts.length})
+            </EditorialText>
+            {savedDrafts.map(draft => (
+              <EducationalCard key={draft.id} variant="cream" style={{ padding: 14, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Badge label={`${draft.cefrLevel} • ${draft.wordCount} palabras`} variant="forest" />
+                  <Pressable onPress={() => handleDeleteDraft(draft.id)} hitSlop={8}>
+                    <EditorialText variant="caption" color={colors.feedback.error}>
+                      Eliminar
+                    </EditorialText>
+                  </Pressable>
+                </View>
+                <EditorialText variant="subheadline" color={colors.text.primary}>
+                  {draft.title}
+                </EditorialText>
+                <EditorialText variant="bodySmall" color={colors.text.secondary} numberOfLines={3}>
+                  {draft.text}
+                </EditorialText>
+                <Pressable
+                  onPress={() => {
+                    const pIdx = writingPrompts.findIndex(p => p.id === draft.promptId);
+                    if (pIdx >= 0) setSelectedPromptIndex(pIdx);
+                    setActiveDraftId(draft.id);
+                    setDraftText(draft.text);
+                  }}
+                >
+                  <EditorialText variant="caption" color={colors.burntOrange} style={{ fontWeight: '700' }}>
+                    Editar borrador →
+                  </EditorialText>
+                </Pressable>
+              </EducationalCard>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

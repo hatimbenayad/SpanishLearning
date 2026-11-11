@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import { TabBar, TabName } from './src/components/navigation/TabBar';
 import { OnboardingScreen } from './src/screens/onboarding/OnboardingScreen';
 import { HomeScreen } from './src/screens/home/HomeScreen';
@@ -12,21 +12,60 @@ import { WritingPracticeScreen } from './src/screens/practice/WritingPracticeScr
 import { ExerciseSessionScreen } from './src/screens/exercises/ExerciseSessionScreen';
 import { ProgressScreen } from './src/screens/progress/ProgressScreen';
 import { ProfileScreen } from './src/screens/profile/ProfileScreen';
+import { EditorialText } from './src/components/common/EditorialText';
 import { colors } from './src/theme/colors';
 import { LearningService } from './src/services/LearningService';
 import { CEFRLevel, LearningCategory } from './src/types';
 
 export default function App() {
   const learningService = LearningService.getInstance();
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true); // Default to true so user sees dashboard, can toggle to onboarding
+  const [isReady, setIsReady] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [currentTab, setCurrentTab] = useState<TabName>('home');
   const [activeSubScreen, setActiveSubScreen] = useState<string | null>(null);
   const [userProgress, setUserProgress] = useState(() => learningService.getProgress());
 
-  const handleFinishOnboarding = (prefs: { goal: string; level: CEFRLevel; dailyMinutes: number }) => {
-    userProgress.cefrLevel = prefs.level;
-    userProgress.dailyGoalMinutes = prefs.dailyMinutes;
-    setUserProgress({ ...userProgress });
+  useEffect(() => {
+    let mounted = true;
+    learningService
+      .initialize()
+      .then(() => {
+        if (!mounted) return;
+        setUserProgress(learningService.getProgress());
+        setHasCompletedOnboarding(learningService.hasCompletedOnboarding());
+        setIsReady(true);
+      })
+      .catch(() => {
+        if (mounted) setIsReady(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const refreshProgress = () => {
+    setUserProgress(learningService.getProgress());
+  };
+
+  const handleFinishOnboarding = async (prefs: {
+    goal: string;
+    level: CEFRLevel;
+    dailyMinutes: number;
+  }) => {
+    await learningService.completeOnboarding({
+      cefrLevel: prefs.level,
+      dailyGoalMinutes: prefs.dailyMinutes,
+    });
+    refreshProgress();
+    setHasCompletedOnboarding(true);
+  };
+
+  const handleSkipOnboarding = async () => {
+    await learningService.completeOnboarding({
+      cefrLevel: userProgress.cefrLevel,
+      dailyGoalMinutes: userProgress.dailyGoalMinutes,
+    });
+    refreshProgress();
     setHasCompletedOnboarding(true);
   };
 
@@ -34,13 +73,9 @@ export default function App() {
     setActiveSubScreen(category);
   };
 
-  const refreshProgress = () => {
-    setUserProgress(learningService.getProgress());
-  };
-
   const handleSelectTab = (tab: TabName) => {
     refreshProgress();
-    setActiveSubScreen(null); // clear subscreen when switching tabs
+    setActiveSubScreen(null);
     setCurrentTab(tab);
   };
 
@@ -49,20 +84,31 @@ export default function App() {
     setActiveSubScreen(null);
   };
 
+  if (!isReady) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background.canvas} />
+        <ActivityIndicator size="large" color={colors.burntOrange} />
+        <EditorialText variant="handwritten" color={colors.forestGreen} style={{ marginTop: 12 }}>
+          Preparando tu diario de español...
+        </EditorialText>
+      </View>
+    );
+  }
+
   if (!hasCompletedOnboarding) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.background.canvas} />
         <OnboardingScreen
           onFinish={handleFinishOnboarding}
-          onSkip={() => setHasCompletedOnboarding(true)}
+          onSkip={handleSkipOnboarding}
         />
       </View>
     );
   }
 
   const renderActiveScreen = () => {
-    // If inside a specific learning subscreen (e.g. from Dashboard or Learn hub)
     if (activeSubScreen === 'reading') {
       return <ReadingScreen onBack={closeSubScreen} />;
     }
@@ -82,7 +128,6 @@ export default function App() {
       return <ExerciseSessionScreen onBack={closeSubScreen} onFinishSession={refreshProgress} />;
     }
 
-    // Main Tab Routing
     switch (currentTab) {
       case 'home':
         return (
@@ -109,6 +154,7 @@ export default function App() {
           <ProfileScreen
             userProgress={userProgress}
             onRefreshProgress={refreshProgress}
+            onReopenOnboarding={() => setHasCompletedOnboarding(false)}
           />
         );
       default:
@@ -136,8 +182,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.canvas,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   screenArea: {
     flex: 1,
   },
 });
-
