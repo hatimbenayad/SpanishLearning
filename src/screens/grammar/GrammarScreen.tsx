@@ -12,15 +12,20 @@ import { ExerciseCard } from '../../components/learning/ExerciseCard';
 import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
 import { grammarLessons } from '../../data/grammar';
-import { GrammarLesson } from '../../types';
+import { GrammarLesson, CEFRLevel } from '../../types';
 
 interface GrammarScreenProps {
   onBack?: () => void;
 }
 
 export const GrammarScreen: React.FC<GrammarScreenProps> = ({ onBack }) => {
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<'ALL' | CEFRLevel>('ALL');
   const [selectedLessonIndex, setSelectedLessonIndex] = useState(0);
-  const currentLesson: GrammarLesson = grammarLessons[selectedLessonIndex] || grammarLessons[0];
+
+  const filteredLessons = grammarLessons.filter(l =>
+    selectedLevelFilter === 'ALL' ? true : l.cefrLevel === selectedLevelFilter
+  );
+  const currentLesson: GrammarLesson = filteredLessons[selectedLessonIndex] || filteredLessons[0] || grammarLessons[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -36,9 +41,44 @@ export const GrammarScreen: React.FC<GrammarScreenProps> = ({ onBack }) => {
           Gramática Progresiva
         </EditorialText>
         <EditorialText variant="caption" color={colors.text.secondary}>
-          Estructuras claras sin enredos lingüísticos
+          Estructuras claras de A1 a B2 sin enredos lingüísticos
         </EditorialText>
       </View>
+
+      {/* CEFR Level Filter Pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.lessonSelector, { paddingBottom: 2 }]}
+      >
+        {(['ALL', 'A1', 'A2', 'B1', 'B2'] as const).map(lvl => {
+          const isSelected = selectedLevelFilter === lvl;
+          return (
+            <Pressable
+              key={lvl}
+              onPress={() => {
+                setSelectedLevelFilter(lvl);
+                setSelectedLessonIndex(0);
+              }}
+              style={[
+                styles.lessonPill,
+                {
+                  backgroundColor: isSelected ? colors.burntOrange : '#FFF9F0',
+                  borderColor: isSelected ? colors.burntOrange : colors.border.subtle,
+                },
+              ]}
+            >
+              <EditorialText
+                variant="caption"
+                color={isSelected ? colors.text.inverse : colors.text.secondary}
+                style={{ fontWeight: isSelected ? '700' : '500' }}
+              >
+                {lvl === 'ALL' ? 'Todos' : `Nivel ${lvl}`}
+              </EditorialText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       {/* Lesson Selector Carousel */}
       <ScrollView
@@ -46,7 +86,7 @@ export const GrammarScreen: React.FC<GrammarScreenProps> = ({ onBack }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.lessonSelector}
       >
-        {grammarLessons.map((lesson, idx) => {
+        {filteredLessons.map((lesson, idx) => {
           const isSelected = idx === selectedLessonIndex;
           return (
             <Pressable

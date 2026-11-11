@@ -1,4 +1,5 @@
 import { UserProgress } from '../types';
+import { initialVocabulary } from './vocabulary';
 
 export const initialUserProgress: UserProgress = {
   userId: 'usr-daizy-01',
@@ -8,8 +9,8 @@ export const initialUserProgress: UserProgress = {
   dailyGoalMinutes: 30,
   currentStreak: 12,
   bestStreak: 15,
-  totalLearningMinutes: 465, // ~7h 45m
-  vocabularyCount: 480,
+  totalLearningMinutes: 215, // sum of weeklyActivity (25+35+40+50+30+15+20 = 215m -> 3h 35m)
+  vocabularyCount: initialVocabulary.length,
   completedLessonIds: ['gram-1', 'read-1'],
   savedWordIds: ['vocab-1', 'vocab-3', 'vocab-5'],
   weeklyActivity: [

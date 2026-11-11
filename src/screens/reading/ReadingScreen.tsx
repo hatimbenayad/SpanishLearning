@@ -14,7 +14,7 @@ import { Badge } from '../../components/common/Badge';
 import { ProgressBar } from '../../components/common/ProgressBar';
 import { colors } from '../../theme/colors';
 import { readingLibrary } from '../../data/reading';
-import { ReadingMaterial } from '../../types';
+import { ReadingMaterial, CEFRLevel } from '../../types';
 import { LearningService } from '../../services/LearningService';
 
 interface ReadingScreenProps {
@@ -22,17 +22,28 @@ interface ReadingScreenProps {
 }
 
 export const ReadingScreen: React.FC<ReadingScreenProps> = ({ onBack }) => {
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<'ALL' | CEFRLevel>('ALL');
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
   const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1.0); // 0.85, 1.0, 1.2
   const [readingProgress, setReadingProgress] = useState(0.4);
 
   const learningService = LearningService.getInstance();
-  const currentStory: ReadingMaterial = readingLibrary[selectedStoryIndex] || readingLibrary[0];
+  const filteredStories = readingLibrary.filter(s =>
+    selectedLevelFilter === 'ALL' ? true : s.cefrLevel === selectedLevelFilter
+  );
+  const currentStory: ReadingMaterial = filteredStories[selectedStoryIndex] || filteredStories[0] || readingLibrary[0];
 
   const paragraphs = currentStory.fullText.split('\n\n').filter(p => p.trim().length > 0);
 
   const handleSaveWord = (word: string, translation: string) => {
-    // Save word to user's vocabulary via service
+    const entry = currentStory.translationGlossary[word.toLowerCase()];
+    learningService.saveWordFromReader(
+      word,
+      translation,
+      entry?.phonetic || '[—]',
+      currentStory.cefrLevel,
+      currentStory.title
+    );
   };
 
   return (
@@ -79,14 +90,49 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ onBack }) => {
         height={3}
       />
 
+      {/* CEFR Level Filter Pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.storySelector, { paddingBottom: 2 }]}
+      >
+        {(['ALL', 'A1', 'A2', 'B1', 'B2'] as const).map(lvl => {
+          const isSelected = selectedLevelFilter === lvl;
+          return (
+            <Pressable
+              key={lvl}
+              onPress={() => {
+                setSelectedLevelFilter(lvl);
+                setSelectedStoryIndex(0);
+              }}
+              style={[
+                styles.storyPill,
+                {
+                  backgroundColor: isSelected ? colors.burntOrange : '#FFF9F0',
+                  borderColor: isSelected ? colors.burntOrange : colors.border.subtle,
+                },
+              ]}
+            >
+              <EditorialText
+                variant="caption"
+                color={isSelected ? colors.text.inverse : colors.text.secondary}
+                style={{ fontWeight: isSelected ? '700' : '500' }}
+              >
+                {lvl === 'ALL' ? 'Todos' : `Nivel ${lvl}`}
+              </EditorialText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       {/* Story Selector if multiple stories exist */}
-      {readingLibrary.length > 1 && (
+      {filteredStories.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.storySelector}
         >
-          {readingLibrary.map((story, idx) => {
+          {filteredStories.map((story, idx) => {
             const isSelected = idx === selectedStoryIndex;
             return (
               <Pressable
@@ -102,7 +148,7 @@ export const ReadingScreen: React.FC<ReadingScreenProps> = ({ onBack }) => {
                   color={isSelected ? colors.text.inverse : colors.text.primary}
                   style={{ fontWeight: isSelected ? '700' : '500' }}
                 >
-                  {story.title.substring(0, 24)}...
+                  {story.cefrLevel} • {story.title.length > 22 ? story.title.substring(0, 22) + '...' : story.title}
                 </EditorialText>
               </Pressable>
             );

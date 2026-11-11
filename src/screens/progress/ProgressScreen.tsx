@@ -14,12 +14,20 @@ import { Badge } from '../../components/common/Badge';
 import { ProgressBar } from '../../components/common/ProgressBar';
 import { colors } from '../../theme/colors';
 import { UserProgress } from '../../types';
+import { LearningService } from '../../services/LearningService';
+import { formatMinutesToHours } from '../../utils/formatters';
 
 interface ProgressScreenProps {
   userProgress: UserProgress;
 }
 
 export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) => {
+  const learningService = LearningService.getInstance();
+  const forecast = learningService.getReviewForecast();
+  const weeklyMinutes = userProgress.weeklyActivity.reduce((sum, d) => sum + d.minutes, 0);
+  const weeklyLessons = userProgress.weeklyActivity.reduce((sum, d) => sum + d.lessons, 0);
+  const totalTimeFormatted = formatMinutesToHours(userProgress.totalLearningMinutes);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -48,7 +56,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
             />
             <StatCard
               label="Tiempo Total"
-              value="7h 50m"
+              value={totalTimeFormatted}
               icon={<EditorialText style={{ fontSize: 18 }}>⏱</EditorialText>}
               iconBgColor="#FCEBE3"
               variant="peach"
@@ -80,8 +88,8 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
         <WeeklyBarChart
           data={userProgress.weeklyActivity}
           dailyGoalMinutes={userProgress.dailyGoalMinutes}
-          totalHoursLabel="7h 50m esta semana"
-          totalLessonsLabel="28 actividades"
+          totalHoursLabel={`${formatMinutesToHours(weeklyMinutes)} esta semana`}
+          totalLessonsLabel={`${weeklyLessons} actividades`}
         />
 
         {/* FSRS Repetition Forecast Card */}
@@ -95,13 +103,13 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
                 Algoritmo de intervalos optimizado
               </EditorialText>
             </View>
-            <Badge label="Retención 94%" variant="forest" />
+            <Badge label="FSRS Activo" variant="forest" />
           </View>
 
           <View style={styles.forecastRow}>
             <View style={styles.forecastCol}>
               <EditorialText variant="statNumber" color={colors.burntOrange}>
-                12
+                {forecast.dueToday}
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
                 Para hoy
@@ -110,7 +118,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
 
             <View style={styles.forecastCol}>
               <EditorialText variant="statNumber" color={colors.forestGreen}>
-                18
+                {forecast.dueTomorrow}
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
                 Mañana
@@ -119,7 +127,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ userProgress }) 
 
             <View style={styles.forecastCol}>
               <EditorialText variant="statNumber" color={colors.text.primary}>
-                35
+                {forecast.dueThisWeek}
               </EditorialText>
               <EditorialText variant="caption" color={colors.text.secondary}>
                 Esta semana

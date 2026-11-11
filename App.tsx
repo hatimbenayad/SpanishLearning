@@ -34,13 +34,19 @@ export default function App() {
     setActiveSubScreen(category);
   };
 
+  const refreshProgress = () => {
+    setUserProgress(learningService.getProgress());
+  };
+
   const handleSelectTab = (tab: TabName) => {
+    refreshProgress();
     setActiveSubScreen(null); // clear subscreen when switching tabs
     setCurrentTab(tab);
   };
 
-  const refreshProgress = () => {
-    setUserProgress(learningService.getProgress());
+  const closeSubScreen = () => {
+    refreshProgress();
+    setActiveSubScreen(null);
   };
 
   if (!hasCompletedOnboarding) {
@@ -58,22 +64,22 @@ export default function App() {
   const renderActiveScreen = () => {
     // If inside a specific learning subscreen (e.g. from Dashboard or Learn hub)
     if (activeSubScreen === 'reading') {
-      return <ReadingScreen onBack={() => setActiveSubScreen(null)} />;
+      return <ReadingScreen onBack={closeSubScreen} />;
     }
     if (activeSubScreen === 'vocabulary') {
-      return <VocabularyScreen onBack={() => setActiveSubScreen(null)} />;
+      return <VocabularyScreen onBack={closeSubScreen} />;
     }
     if (activeSubScreen === 'grammar') {
-      return <GrammarScreen onBack={() => setActiveSubScreen(null)} />;
+      return <GrammarScreen onBack={closeSubScreen} />;
     }
     if (activeSubScreen === 'verbs') {
-      return <VerbsScreen onBack={() => setActiveSubScreen(null)} />;
+      return <VerbsScreen onBack={closeSubScreen} />;
     }
     if (activeSubScreen === 'writing') {
-      return <WritingPracticeScreen onBack={() => setActiveSubScreen(null)} />;
+      return <WritingPracticeScreen onBack={closeSubScreen} />;
     }
     if (activeSubScreen === 'exercises') {
-      return <ExerciseSessionScreen onBack={() => setActiveSubScreen(null)} onFinishSession={refreshProgress} />;
+      return <ExerciseSessionScreen onBack={closeSubScreen} onFinishSession={refreshProgress} />;
     }
 
     // Main Tab Routing

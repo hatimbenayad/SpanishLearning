@@ -20,15 +20,24 @@ interface VerbsScreenProps {
 
 export const VerbsScreen: React.FC<VerbsScreenProps> = ({ onBack }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [regularityFilter, setRegularityFilter] = useState<'all' | 'regular' | 'irregular'>('all');
   const [selectedVerbInfinitive, setSelectedVerbInfinitive] = useState<string>('hablar');
   const [selectedTense, setSelectedTense] = useState<keyof VerbItem['tenses']>('presente');
 
-  const filteredVerbs = verbDatabase.filter(v =>
-    v.infinitive.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.translation.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVerbs = verbDatabase.filter(v => {
+    const matchesSearch =
+      v.infinitive.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.translation.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    if (regularityFilter === 'regular') return v.isRegular;
+    if (regularityFilter === 'irregular') return !v.isRegular;
+    return true;
+  });
 
-  const activeVerb = verbDatabase.find(v => v.infinitive === selectedVerbInfinitive) || verbDatabase[0];
+  const activeVerb =
+    filteredVerbs.find(v => v.infinitive === selectedVerbInfinitive) ||
+    filteredVerbs[0] ||
+    verbDatabase[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -66,6 +75,39 @@ export const VerbsScreen: React.FC<VerbsScreenProps> = ({ onBack }) => {
           )}
         </View>
 
+        {/* Regularity Filter Pills */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {(['all', 'regular', 'irregular'] as const).map(filter => {
+            const isActive = regularityFilter === filter;
+            const labels: Record<string, string> = {
+              all: `Todos (${verbDatabase.length})`,
+              regular: 'Regulares',
+              irregular: 'Irregulares',
+            };
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setRegularityFilter(filter)}
+                style={[
+                  styles.verbPill,
+                  {
+                    backgroundColor: isActive ? colors.forestGreen : '#FFF9F0',
+                    borderColor: isActive ? colors.forestGreen : colors.border.subtle,
+                  },
+                ]}
+              >
+                <EditorialText
+                  variant="caption"
+                  color={isActive ? colors.text.inverse : colors.text.secondary}
+                  style={{ fontWeight: isActive ? '700' : '500' }}
+                >
+                  {labels[filter]}
+                </EditorialText>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* Quick Verb Chips */}
         <ScrollView
           horizontal
@@ -73,7 +115,7 @@ export const VerbsScreen: React.FC<VerbsScreenProps> = ({ onBack }) => {
           contentContainerStyle={styles.verbsCarousel}
         >
           {filteredVerbs.map(v => {
-            const isSelected = v.infinitive === selectedVerbInfinitive;
+            const isSelected = v.infinitive === activeVerb.infinitive;
             return (
               <Pressable
                 key={v.infinitive}
@@ -100,11 +142,22 @@ export const VerbsScreen: React.FC<VerbsScreenProps> = ({ onBack }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <ConjugationTable
-          verb={activeVerb}
-          selectedTense={selectedTense}
-          onSelectTense={setSelectedTense}
-        />
+        {filteredVerbs.length > 0 ? (
+          <ConjugationTable
+            verb={activeVerb}
+            selectedTense={selectedTense}
+            onSelectTense={setSelectedTense}
+          />
+        ) : (
+          <EducationalCard variant="cream" style={{ padding: 24, alignItems: 'center' }}>
+            <EditorialText variant="subheadline" color={colors.text.primary}>
+              No se encontraron verbos para "{searchQuery}"
+            </EditorialText>
+            <EditorialText variant="caption" color={colors.text.secondary} style={{ marginTop: 4 }}>
+              Prueba buscando hablar, comer, vivir, ser o estar.
+            </EditorialText>
+          </EducationalCard>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

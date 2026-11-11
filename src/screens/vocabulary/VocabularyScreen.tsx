@@ -26,18 +26,20 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({ onBack }) =>
   );
   const [activeWordIndex, setActiveWordIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'favorites' | 'A1' | 'A2'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'favorites' | 'A1' | 'A2' | 'B1' | 'B2'>('all');
   const [activeTab, setActiveTab] = useState<'flashcards' | 'browser'>('flashcards');
 
   const filteredWords = vocabulary.filter(w => {
     const matchesSearch =
       w.word.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      w.translation.toLowerCase().includes(searchQuery.toLowerCase());
+      w.translation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      w.topic.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
     if (selectedFilter === 'favorites') return w.isFavorite;
-    if (selectedFilter === 'A1') return w.cefrLevel === 'A1';
-    if (selectedFilter === 'A2') return w.cefrLevel === 'A2';
+    if (['A1', 'A2', 'B1', 'B2'].includes(selectedFilter)) {
+      return w.cefrLevel === selectedFilter;
+    }
     return true;
   });
 
@@ -105,6 +107,46 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({ onBack }) =>
         </Pressable>
       </View>
 
+      {/* CEFR & Favorites Filter Pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.filterPills, { paddingHorizontal: 20, marginBottom: 12 }]}
+      >
+        {(['all', 'favorites', 'A1', 'A2', 'B1', 'B2'] as const).map(filter => {
+          const isActive = selectedFilter === filter;
+          const labels: Record<string, string> = {
+            all: 'Todas',
+            favorites: '★ Guardadas',
+            A1: 'Nivel A1',
+            A2: 'Nivel A2',
+            B1: 'Nivel B1',
+            B2: 'Nivel B2',
+          };
+          return (
+            <Pressable
+              key={filter}
+              onPress={() => {
+                setSelectedFilter(filter);
+                setActiveWordIndex(0);
+              }}
+              style={[
+                styles.filterChip,
+                isActive && styles.filterChipActive,
+              ]}
+            >
+              <EditorialText
+                variant="caption"
+                color={isActive ? colors.text.inverse : colors.text.secondary}
+                style={{ fontWeight: isActive ? '700' : '500' }}
+              >
+                {labels[filter]}
+              </EditorialText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -133,6 +175,7 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({ onBack }) =>
                 </View>
 
                 <Flashcard
+                  key={currentFlashcard.id}
                   item={currentFlashcard}
                   onRate={handleRate}
                   onToggleFavorite={handleToggleFavorite}
@@ -152,7 +195,7 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({ onBack }) =>
             <View style={styles.searchBar}>
               <EditorialText style={styles.searchIcon}>🔍</EditorialText>
               <TextInput
-                placeholder="Buscar palabra o traducción..."
+                placeholder="Buscar palabra, tema o traducción..."
                 placeholderTextColor={colors.mutedGrey}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -163,37 +206,6 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({ onBack }) =>
                   <EditorialText style={styles.clearIcon}>✕</EditorialText>
                 </Pressable>
               )}
-            </View>
-
-            {/* Filter Pills */}
-            <View style={styles.filterPills}>
-              {(['all', 'favorites', 'A1', 'A2'] as const).map(filter => {
-                const isActive = selectedFilter === filter;
-                const labels: Record<string, string> = {
-                  all: 'Todas',
-                  favorites: '★ Guardadas',
-                  A1: 'Nivel A1',
-                  A2: 'Nivel A2',
-                };
-                return (
-                  <Pressable
-                    key={filter}
-                    onPress={() => setSelectedFilter(filter)}
-                    style={[
-                      styles.filterChip,
-                      isActive && styles.filterChipActive,
-                    ]}
-                  >
-                    <EditorialText
-                      variant="caption"
-                      color={isActive ? colors.text.inverse : colors.text.secondary}
-                      style={{ fontWeight: isActive ? '700' : '500' }}
-                    >
-                      {labels[filter]}
-                    </EditorialText>
-                  </Pressable>
-                );
-              })}
             </View>
 
             {/* Word List */}

@@ -16,6 +16,9 @@ import { EditorialText } from '../../components/common/EditorialText';
 import { Badge } from '../../components/common/Badge';
 import { colors } from '../../theme/colors';
 import { UserProgress } from '../../types';
+import { formatMinutesToHours } from '../../utils/formatters';
+import { grammarLessons } from '../../data/grammar';
+import { readingLibrary } from '../../data/reading';
 
 interface HomeScreenProps {
   userProgress: UserProgress;
@@ -30,6 +33,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onContinueLesson,
   onPressProfile,
 }) => {
+  const totalTimeFormatted = formatMinutesToHours(userProgress.totalLearningMinutes);
+  const weeklyMinutes = userProgress.weeklyActivity.reduce((sum, d) => sum + d.minutes, 0);
+  const weeklyLessons = userProgress.weeklyActivity.reduce((sum, d) => sum + d.lessons, 0);
+
+  const currentLevelLessons = [
+    ...grammarLessons.filter(g => g.cefrLevel === userProgress.cefrLevel).map(g => g.id),
+    ...readingLibrary.filter(r => r.cefrLevel === userProgress.cefrLevel).map(r => r.id),
+  ];
+  const completedInLevel = currentLevelLessons.filter(id =>
+    userProgress.completedLessonIds.includes(id)
+  ).length;
+  const levelProgressPercent =
+    currentLevelLessons.length > 0
+      ? Math.round((completedInLevel / currentLevelLessons.length) * 100)
+      : 0;
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -50,14 +68,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <EditorialText variant="headline" color={colors.text.primary}>
               Resumen de aprendizaje
             </EditorialText>
-            <Badge label="Nivel A1 Activo" variant="forest" />
+            <Badge label={`Nivel ${userProgress.cefrLevel} Activo`} variant="forest" />
           </View>
 
           <View style={styles.metricsGrid}>
             <View style={styles.metricsRow}>
               <StatCard
                 label="Horas de estudio"
-                value="7h 50m"
+                value={totalTimeFormatted}
                 icon={<EditorialText style={{ fontSize: 18 }}>⏱</EditorialText>}
                 iconBgColor="#FCEBE3"
                 variant="peach"
@@ -83,8 +101,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 style={styles.gridCard}
               />
               <StatCard
-                label="Progreso A1"
-                value="75%"
+                label={`Progreso ${userProgress.cefrLevel}`}
+                value={`${levelProgressPercent}%`}
                 icon={<EditorialText style={{ fontSize: 18 }}>📈</EditorialText>}
                 iconBgColor="#EDE8F5"
                 variant="lavender"
@@ -234,8 +252,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <WeeklyBarChart
             data={userProgress.weeklyActivity}
             dailyGoalMinutes={userProgress.dailyGoalMinutes}
-            totalHoursLabel="7h 50m"
-            totalLessonsLabel={`${userProgress.completedLessonIds.length} lecciones`}
+            totalHoursLabel={formatMinutesToHours(weeklyMinutes)}
+            totalLessonsLabel={`${weeklyLessons} lecciones`}
           />
         </View>
 

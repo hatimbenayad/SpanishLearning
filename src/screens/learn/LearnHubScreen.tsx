@@ -12,6 +12,10 @@ import { Badge } from '../../components/common/Badge';
 import { ProgressBar } from '../../components/common/ProgressBar';
 import { colors } from '../../theme/colors';
 import { CEFRLevel, LearningCategory } from '../../types';
+import { LearningService } from '../../services/LearningService';
+import { grammarLessons } from '../../data/grammar';
+import { verbDatabase } from '../../data/verbs';
+import { readingLibrary } from '../../data/reading';
 
 interface LearnHubScreenProps {
   currentLevel: CEFRLevel;
@@ -23,6 +27,25 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
   onSelectCategory,
 }) => {
   const [selectedLevel, setSelectedLevel] = useState<CEFRLevel>(initialLevel);
+  const learningService = LearningService.getInstance();
+  const userProgress = learningService.getProgress();
+  const allVocabulary = learningService.getVocabulary();
+
+  const levelVocabCount = allVocabulary.filter(v => v.cefrLevel === selectedLevel).length;
+  const levelGrammarList = grammarLessons.filter(g => g.cefrLevel === selectedLevel);
+  const levelReadingList = readingLibrary.filter(r => r.cefrLevel === selectedLevel);
+
+  const levelLessonIds = [
+    ...levelGrammarList.map(g => g.id),
+    ...levelReadingList.map(r => r.id),
+  ];
+  const completedInSelectedLevel = levelLessonIds.filter(id =>
+    userProgress.completedLessonIds.includes(id)
+  ).length;
+  const completionPct =
+    levelLessonIds.length > 0
+      ? Math.round((completedInSelectedLevel / levelLessonIds.length) * 100)
+      : 0;
 
   const modules: Array<{
     category: LearningCategory;
@@ -40,7 +63,7 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       icon: '🗂️',
       badge: 'FSRS Activo',
       variant: 'cream',
-      count: '480 palabras',
+      count: `${levelVocabCount} palabras en ${selectedLevel} (${allVocabulary.length} total)`,
     },
     {
       category: 'grammar',
@@ -49,7 +72,7 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       icon: '📐',
       badge: 'A1–B2',
       variant: 'peach',
-      count: '24 lecciones',
+      count: `${levelGrammarList.length} lecciones en ${selectedLevel} (${grammarLessons.length} total)`,
     },
     {
       category: 'verbs',
@@ -58,7 +81,7 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       icon: '🔄',
       badge: 'Esencial',
       variant: 'sage',
-      count: 'Verbos regulares & irregulares',
+      count: `${verbDatabase.length} verbos esenciales`,
     },
     {
       category: 'reading',
@@ -67,7 +90,7 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
       icon: '📖',
       badge: 'Editorial',
       variant: 'cream',
-      count: 'Cervantes, crónicas y cuentos',
+      count: `${levelReadingList.length} lectura(s) en ${selectedLevel} (${readingLibrary.length} total)`,
     },
     {
       category: 'exercises',
@@ -159,11 +182,11 @@ export const LearnHubScreen: React.FC<LearnHubScreenProps> = ({
                 Completitud del nivel
               </EditorialText>
               <EditorialText variant="caption" color={colors.burntOrange} style={{ fontWeight: '700' }}>
-                {selectedLevel === 'A1' ? '75%' : '0%'}
+                {completionPct}%
               </EditorialText>
             </View>
             <ProgressBar
-              progress={selectedLevel === 'A1' ? 0.75 : 0.05}
+              progress={completionPct / 100}
               color={colors.burntOrange}
               trackColor="#EAE1D3"
               height={6}

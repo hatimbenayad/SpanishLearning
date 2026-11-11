@@ -15,7 +15,7 @@ interface ConjugationTableProps {
 
 const tenseDisplayNames: Record<keyof VerbItem['tenses'], string> = {
   presente: 'Presente',
-  preteritoPerfecto: 'Pretérito Perfecto',
+  preteritoPerfecto: 'Pretérito Indefinido',
   imperfecto: 'Imperfecto',
   futuro: 'Futuro',
   condicional: 'Condicional',
@@ -129,7 +129,7 @@ export const ConjugationTable: React.FC<ConjugationTableProps> = ({
                 >
                   {conjugatedWord}
                 </EditorialText>
-                <EditorialText style={styles.soundIcon}>🔊</EditorialText>
+                {onPronounceForm && <EditorialText style={styles.soundIcon}>🔊</EditorialText>}
               </View>
             </Pressable>
           );

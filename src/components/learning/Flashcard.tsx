@@ -69,14 +69,22 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                 {item.word}
               </EditorialText>
 
-              <Pressable
-                onPress={() => onPronounce?.(item.word)}
-                style={styles.pronounceChip}
-              >
-                <EditorialText variant="caption" color={colors.forestGreen}>
-                  🔊 {item.phonetic}
-                </EditorialText>
-              </Pressable>
+              {onPronounce ? (
+                <Pressable
+                  onPress={() => onPronounce(item.word)}
+                  style={styles.pronounceChip}
+                >
+                  <EditorialText variant="caption" color={colors.forestGreen}>
+                    🔊 {item.phonetic}
+                  </EditorialText>
+                </Pressable>
+              ) : (
+                <View style={styles.pronounceChip}>
+                  <EditorialText variant="caption" color={colors.forestGreen}>
+                    {item.phonetic}
+                  </EditorialText>
+                </View>
+              )}
 
               <EditorialText
                 variant="caption"

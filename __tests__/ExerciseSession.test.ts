@@ -29,3 +29,4 @@ describe('Exercise Engine & Session Flow', () => {
     expect(updatedMinutes).toBeGreaterThan(initialMinutes);
   });
 });
+
